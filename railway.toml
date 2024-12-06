@@ -3,8 +3,8 @@ builder = "nixpacks"
 buildCommand = "pip install -r requirements.txt"
 
 [deploy]
-startCommand = "gunicorn wsgi:app"
-healthcheckPath = "/"
+startCommand = "gunicorn wsgi:app --bind 0.0.0.0:$PORT"
+healthcheckPath = "/health"
 healthcheckTimeout = 100
 
 [build.env]
