@@ -1,4 +1,4 @@
-from flask import current_app, Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, Response
+from flask import current_app, Flask, render_template, request, redirect, url_for, flash, jsonify, json, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import extract, func,case
 from sqlalchemy.exc import SQLAlchemyError
@@ -13,7 +13,9 @@ from openpyxl import Workbook
 from datetime import datetime
 from openpyxl import load_workbook
 import pandas as pd
+import calendar
 import plotly
+import logging
 import plotly.express as px
 import plotly.graph_objects as go
 import json
@@ -723,7 +725,7 @@ def view_transactions():
 @login_required  # Add login protection if not already present
 def update_transaction(transaction_id):
     try:
-        transaction = Transaction.query.get_or_404(transaction_id)
+        transaction = db.session.get_or_404(Transaction, transaction_id)
         
         # Validate form data
         if not all(key in request.form for key in ['type', 'category_id', 'amount', 'date', 'description']):
@@ -869,7 +871,7 @@ def set_budget_goals():
                 spent = query.scalar() or 0
                 percentage = (spent / goal.amount) * 100 if goal.amount > 0 else 0
 
-                category = Category.query.get(goal.category_id)
+                category = db.session.get(Category, goal.category_id)
                 budget_goals.append({
                     'id': goal.id,
                     'category': category.name,
@@ -901,7 +903,7 @@ def set_budget_goals():
 @login_required
 def edit_budget_goal(goal_id):
     try:
-        goal = BudgetGoal.query.get_or_404(goal_id)
+        goal = db.session.get_or_404(BudgetGoal, goal_id)
         
         # Get form data
         amount = float(request.form.get('amount', 0))
@@ -934,7 +936,7 @@ def edit_budget_goal(goal_id):
 @login_required
 def delete_budget_goal(goal_id):
     try:
-        goal = BudgetGoal.query.get_or_404(goal_id)
+        goal = db.session.get_or_404(BudgetGoal, goal_id)
         db.session.delete(goal)
         db.session.commit()
         flash('Budget goal deleted successfully!', 'success')
@@ -1080,7 +1082,7 @@ def add_recurring_transaction():
             db.session.commit()
             
             # Verify the transaction was saved
-            saved_transaction = RecurringTransaction.query.get(new_recurring.id)
+            saved_transaction = db.session.get(RecurringTransaction, new_recurring.id)
             current_app.logger.info(f"Successfully saved recurring transaction: {saved_transaction}")
             
             flash('Recurring transaction added successfully!', 'success')
@@ -1511,58 +1513,55 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-@app.route('/expense-analysis', methods=['GET', 'POST'])
+@app.route('/expense-analysis')
 @login_required
 def expense_analysis():
     try:
-        # Get date range from query parameters or default to current month
-        start_date_str = request.args.get('start_date')
-        end_date_str = request.args.get('end_date')
+        app.logger.debug("Starting expense analysis")
+        
+        # Get date range (default to current month)
+        today = datetime.today()
+        start_date = datetime(today.year, today.month, 1)
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        end_date = datetime(today.year, today.month, last_day, 23, 59, 59)
 
-        if start_date_str and end_date_str:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-        else:
-            # Default to current month
-            today = datetime.now()
-            start_date = datetime(today.year, today.month, 1)
-            end_date = (start_date + relativedelta(months=1))
-
-        # Query all transactions within date range for current user
+        # Get transactions for the period
         transactions = Transaction.query.filter(
             Transaction.user_id == current_user.id,
             Transaction.date >= start_date,
-            Transaction.date < end_date
+            Transaction.date <= end_date
         ).all()
 
-        # Initialize counters and dictionaries
-        total_income = total_expenses = 0
+        app.logger.debug(f"Found {len(transactions)} transactions")
+
+        # Calculate totals (note the lowercase comparison)
+        total_income = sum(t.amount for t in transactions if t.type.lower() == 'income')
+        total_expenses = sum(t.amount for t in transactions if t.type.lower() == 'expense')
+
+        app.logger.debug(f"Total income: {total_income}, Total expenses: {total_expenses}")
+
+        # Calculate percentages by category
         income_by_category = {}
-        expenses_by_category = {}
+        expense_by_category = {}
 
-        # Process transactions
         for transaction in transactions:
-            try:
-                category_name = transaction.category.name
-                amount = float(transaction.amount)
+            category_name = transaction.category.name
+            amount = float(transaction.amount)
+            
+            if transaction.type.lower() == 'income':  # Changed to lowercase comparison
+                if category_name not in income_by_category:
+                    income_by_category[category_name] = 0
+                income_by_category[category_name] += amount
+            else:  # Expense
+                if category_name not in expense_by_category:
+                    expense_by_category[category_name] = 0
+                expense_by_category[category_name] += amount
 
-                # Check transaction type (case-insensitive)
-                if transaction.type.lower() == 'income':
-                    total_income += amount
-                    income_by_category[category_name] = income_by_category.get(category_name, 0) + amount
-                elif transaction.type.lower() == 'expense':
-                    total_expenses += amount
-                    expenses_by_category[category_name] = expenses_by_category.get(category_name, 0) + amount
-
-            except Exception as e:
-                current_app.logger.error(f"Error processing transaction {transaction.id}: {str(e)}")
-                continue
-
-        # Calculate category percentages
+        # Convert to percentages
         income_percentages = []
         if total_income > 0:
-            for category, amount in sorted(income_by_category.items(), key=lambda x: x[1], reverse=True):
-                percentage = (amount / total_income) * 100
+            for category, amount in income_by_category.items():
+                percentage = (amount / total_income * 100)
                 income_percentages.append({
                     'category': category,
                     'amount': amount,
@@ -1571,87 +1570,99 @@ def expense_analysis():
 
         expense_percentages = []
         if total_expenses > 0:
-            for category, amount in sorted(expenses_by_category.items(), key=lambda x: x[1], reverse=True):
-                percentage = (amount / total_expenses) * 100
+            for category, amount in expense_by_category.items():
+                percentage = (amount / total_expenses * 100)
                 expense_percentages.append({
                     'category': category,
                     'amount': amount,
                     'percentage': round(percentage, 1)
                 })
 
-        # Get monthly trends for the last 12 months
+        # Get monthly trends (last 12 months)
         monthly_trends = []
-        for i in range(11, -1, -1):
-            month_start = start_date - relativedelta(months=i)
-            month_end = month_start + relativedelta(months=1)
-
-            # Get monthly totals
+        current_date = today
+        
+        for i in range(12):
+            month_start = datetime(current_date.year, current_date.month, 1)
+            last_day = calendar.monthrange(current_date.year, current_date.month)[1]
+            month_end = datetime(current_date.year, current_date.month, last_day, 23, 59, 59)
+            
             month_transactions = Transaction.query.filter(
                 Transaction.user_id == current_user.id,
                 Transaction.date >= month_start,
-                Transaction.date < month_end
+                Transaction.date <= month_end
             ).all()
 
+            # Note the lowercase comparison here too
             month_income = sum(t.amount for t in month_transactions if t.type.lower() == 'income')
             month_expenses = sum(t.amount for t in month_transactions if t.type.lower() == 'expense')
-            
+
             monthly_trends.append({
                 'month': month_start.strftime('%B %Y'),
-                'income': month_income,
-                'expenses': month_expenses,
-                'net': month_income - month_expenses
+                'income': float(month_income),
+                'expenses': float(month_expenses),
+                'net': float(month_income - month_expenses)
             })
 
-        # Get budget vs actual for expense categories
-        budget_comparison = []
-        expense_categories = Category.query.filter_by(
-            user_id=current_user.id,
-            type='expense'
-        ).all()
+            current_date = (month_start - timedelta(days=1))
 
-        for category in expense_categories:
-            spent = expenses_by_category.get(category.name, 0)
-            if category.budget_limit > 0:
-                percentage = (spent / category.budget_limit) * 100
-            else:
-                percentage = 0
-                
+        monthly_trends.reverse()
+
+        # Get budget comparison
+        budget_goals = BudgetGoal.query.filter_by(user_id=current_user.id).all()
+        budget_comparison = []
+
+        for goal in budget_goals:
+            # Note the lowercase comparison here too
+            spent = sum(t.amount for t in transactions 
+                       if t.category_id == goal.category_id and t.type.lower() == 'expense')
+            
+            percentage = (spent / goal.amount * 100) if goal.amount > 0 else 0
+
             budget_comparison.append({
-                'category': category.name,
-                'budget': category.budget_limit,
-                'spent': spent,
+                'category': goal.category.name,
+                'budget': float(goal.amount),
+                'spent': float(spent),
                 'percentage': round(percentage, 1)
             })
 
+        # Prepare chart data
+        chart_data = {
+            'incomeLabels': [item['category'] for item in income_percentages],
+            'incomeData': [item['percentage'] for item in income_percentages],
+            'income_amounts': [item['amount'] for item in income_percentages],
+            
+            'expenseLabels': [item['category'] for item in expense_percentages],
+            'expenseData': [item['percentage'] for item in expense_percentages],
+            'expense_amounts': [item['amount'] for item in expense_percentages],
+            
+            'trendLabels': [item['month'] for item in monthly_trends],
+            'incomeValues': [item['income'] for item in monthly_trends],
+            'expenseValues': [item['expenses'] for item in monthly_trends],
+            
+            'budgetLabels': [item['category'] for item in budget_comparison],
+            'budgetValues': [item['percentage'] for item in budget_comparison],
+            'budgetSpent': [item['spent'] for item in budget_comparison],
+            'budgetLimits': [item['budget'] for item in budget_comparison]
+        }
+
         return render_template('expense_analysis.html',
-                             start_date=start_date,
-                             end_date=end_date,
-                             total_income=total_income,
-                             total_expenses=total_expenses,
-                             net_income=total_income - total_expenses,
+                             start_date=start_date.strftime('%Y-%m-%d'),
+                             end_date=end_date.strftime('%Y-%m-%d'),
+                             total_income=float(total_income),
+                             total_expenses=float(total_expenses),
+                             net_income=float(total_income - total_expenses),
                              income_percentages=income_percentages,
                              expense_percentages=expense_percentages,
                              monthly_trends=monthly_trends,
-                             budget_comparison=budget_comparison)
+                             budget_comparison=budget_comparison,
+                             chart_data=chart_data)
 
     except Exception as e:
-        current_app.logger.error(f"Expense analysis error: {str(e)}")
-        flash('An error occurred while generating the expense analysis.', 'error')
+        app.logger.error(f"Error in expense analysis: {str(e)}")
+        app.logger.exception("Full traceback:")
+        flash('An error occurred while generating the analysis.', 'error')
         return redirect(url_for('home'))
-
-def check_system_categories():
-    with app.app_context():
-        system_cats = Category.query.filter_by(user_id=1).all()
-        if not system_cats:
-            print("No system categories found! Running init_db()...")
-            init_db()
-        else:
-            print(f"Found {len(system_cats)} system categories:")
-            for cat in system_cats:
-                print(f"- {cat.name} ({cat.type})")
-
-# Run this to check/initialize system categories
-check_system_categories()
 
 
 def export_settings():
@@ -1855,7 +1866,7 @@ def income_analysis():
 @app.route('/get_transaction/<int:transaction_id>')
 def get_transaction(transaction_id):
     try:
-        transaction = Transaction.query.get_or_404(transaction_id)
+        transaction = db.session.get_or_404(Transaction, transaction_id)
         return jsonify({
             'date': transaction.date.strftime('%Y-%m-%d'),
             'type': transaction.type,
@@ -1871,7 +1882,7 @@ def get_transaction(transaction_id):
 def edit_transaction():
     try:
         transaction_id = request.form.get('transaction_id')
-        transaction = Transaction.query.get_or_404(transaction_id)
+        transaction = db.session.get_or_404(Transaction, transaction_id)
 
         # Verify ownership
         if transaction.user_id != current_user.id:
@@ -1900,7 +1911,7 @@ def edit_transaction():
 @app.route('/delete_transaction/<int:transaction_id>', methods=['POST'])
 def delete_transaction(transaction_id):
     try:
-        transaction = Transaction.query.get_or_404(transaction_id)
+        transaction = db.session.get_or_404(Transaction, transaction_id)
         db.session.delete(transaction)
         db.session.commit()
         flash('Transaction deleted successfully!', 'success')
