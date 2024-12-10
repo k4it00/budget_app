@@ -208,47 +208,40 @@
 /* Dark Mode Support */
 @media (prefers-color-scheme: dark) {
     .card {
-        background-color: #2d2d2d;
-        color: #fff;
+        background-color: #f8f9fa;
+        color: #212529;
     }
 
     .card-header {
-        background-color: #333;
-        border-bottom-color: #444;
+        background-color: #ffffff;
+        border-bottom-color: #dee2e6;
     }
 
     .table {
-        color: #fff;
+        color: #212529;
     }
 
     .table th {
-        color: #adb5bd;
+        color: #495057;
     }
 
     .table-hover tbody tr:hover {
-        background-color: rgba(255, 255, 255, 0.05);
+        background-color: rgba(0, 0, 0, 0.02);
     }
 
     .form-control {
-        background-color: #333;
-        border-color: #444;
-        color: #fff;
+        background-color: #ffffff;
+        border-color: #ced4da;
+        color: #212529;
     }
 
     .form-control:focus {
-        background-color: #333;
-        border-color: #666;
-        color: #fff;
-    }
-
-    .text-muted {
-        color: #adb5bd !important;
-    }
-
-    .loading-overlay {
-        background: rgba(45, 45, 45, 0.8);
+        background-color: #ffffff;
+        border-color: #80bdff;
+        color: #212529;
     }
 }
+
 
 /* Print Styles */
 @media print {
