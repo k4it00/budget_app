@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="welcome-tour">
+    <div class="welcome-slides">
+        <!-- Slide 1 -->
+        <div class="slide" id="slide1">
+            <div class="welcome-content text-center">
+                <div class="welcome-icon">
+                    <i class="fas fa-wallet fa-4x text-primary"></i>
+                </div>
+                <h1>Welcome to Budget Tracker</h1>
+                <p class="lead">Take control of your finances with our easy-to-use budgeting tool</p>
+                <button class="btn btn-primary next-slide">Next</button>
+            </div>
+        </div>
+
+        <!-- Slide 2 -->
+        <div class="slide" id="slide2" style="display: none;">
+            <div class="welcome-content text-center">
+                <div class="welcome-icon">
+                    <i class="fas fa-chart-line fa-4x text-success"></i>
+                </div>
+                <h2>Track Your Expenses</h2>
+                <p>Easily record and categorize your income and expenses</p>
+                <button class="btn btn-primary next-slide">Next</button>
+            </div>
+        </div>
+
+        <!-- Slide 3 -->
+        <div class="slide" id="slide3" style="display: none;">
+            <div class="welcome-content text-center">
+                <div class="welcome-icon">
+                    <i class="fas fa-bullseye fa-4x text-info"></i>
+                </div>
+                <h2>Set Budget Goals</h2>
+                <p>Create budgets for different categories and track your progress</p>
+                <button class="btn btn-primary next-slide">Next</button>
+            </div>
+        </div>
+
+        <!-- Final Slide -->
+        <div class="slide" id="slide4" style="display: none;">
+            <div class="welcome-content text-center">
+                <div class="welcome-icon">
+                    <i class="fas fa-flag-checkered fa-4x text-success"></i>
+                </div>
+                <h2>Ready to Start?</h2>
+                <p>Let's begin your journey to better financial management</p>
+                <form action="{{ url_for('complete_welcome') }}" method="POST">
+                    <button type="submit" class="btn btn-success">Get Started</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress dots -->
+    <div class="progress-dots text-center mt-4">
+        <span class="dot active"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+    </div>
+
+    <!-- Skip Tour Button -->
+    <div class="skip-tour text-center mt-3">
+        <form action="{{ url_for('complete_welcome') }}" method="POST">
+            <button type="submit" class="btn btn-link">Skip Tour</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.welcome-tour {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 2rem;
+}
+
+.welcome-content {
+    padding: 3rem 2rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+.welcome-icon {
+    margin-bottom: 2rem;
+    animation: bounceIn 0.8s ease;
+}
+
+.progress-dots {
+    margin-top: 2rem;
+}
+
+.dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin: 0 5px;
+    background-color: #ddd;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.dot.active {
+    background-color: #007bff;
+}
+
+.slide {
+    animation: fadeIn 0.5s ease-in;
+}
+
+.btn {
+    margin: 10px;
+    padding: 10px 30px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn-link {
+    color: #6c757d;
+    text-decoration: none;
+}
+
+.btn-link:hover {
+    color: #343a40;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bounceIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+    50% {
+        opacity: 0.9;
+        transform: scale(1.1);
+    }
+    80% {
+        opacity: 1;
+        transform: scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .welcome-tour {
+        margin: 1rem;
+        padding: 1rem;
+    }
+
+    .welcome-content {
+        padding: 2rem 1rem;
+    }
+
+    h1 {
+        font-size: 1.8rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const slides = document.querySelectorAll('.slide');
+    const dots = document.querySelectorAll('.dot');
+    let currentSlide = 0;
+
+    function showSlide(index) {
+        slides.forEach(slide => slide.style.display = 'none');
+        dots.forEach(dot => dot.classList.remove('active'));
+        
+        slides[index].style.display = 'block';
+        dots[index].classList.add('active');
+    }
+
+    function nextSlide() {
+        currentSlide = (currentSlide + 1) % slides.length;
+        showSlide(currentSlide);
+    }
+
+    // Add click handlers to next buttons
+    document.querySelectorAll('.next-slide').forEach(button => {
+        button.addEventListener('click', nextSlide);
+    });
+
+    // Add click handlers to dots
+    dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => {
+            currentSlide = index;
+            showSlide(currentSlide);
+        });
+    });
+
+    // Initialize first slide
+    showSlide(0);
+});
+</script>
+{% endblock %}
