@@ -1335,6 +1335,7 @@ def delete_user():
         user = User.query.get(user_id)
         if user:
             # Delete related records
+            Transaction.query.filter_by(user_id=user_id).delete()
             Category.query.filter_by(user_id=user_id).delete()
             RecurringTransaction.query.filter_by(user_id=user_id).delete()
             db.session.delete(user)
