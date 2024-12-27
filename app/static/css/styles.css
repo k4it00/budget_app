@@ -239,3 +239,21 @@ body {
         padding: 1rem;
     }
 }
+.form-group {
+    position: relative;
+}
+
+#togglePassword {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+#togglePassword:focus {
+    outline: none;
+}

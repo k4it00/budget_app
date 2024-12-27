@@ -1,3 +1,22 @@
+// Ensure chartData is defined
+if (typeof chartData === 'undefined') {
+    const chartData = {
+        incomeLabels: [],
+        incomeData: [],
+        income_amounts: [],
+        expenseLabels: [],
+        expenseData: [],
+        expense_amounts: [],
+        trendLabels: [],
+        incomeValues: [],
+        expenseValues: [],
+        budgetLabels: [],
+        budgetValues: [],
+        budgetSpent: [],
+        budgetLimits: []
+    };
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Utility function to format currency
     const formatCurrency = (value) => {
@@ -241,8 +260,8 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', function() {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(function() {
-            // Reload the page to redraw charts
-            window.location.reload();
+            // Refresh charts here if needed
+            location.reload();
         }, 250);
     });
 });

@@ -11,6 +11,8 @@ class User(UserMixin, db.Model):
     last_name = db.Column(db.String(64))
     password_hash = db.Column(db.String(128))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    google_id = db.Column(db.String(128), unique=True)  
+
     
     # Relationships
     categories = db.relationship('Category', backref='user', lazy=True)

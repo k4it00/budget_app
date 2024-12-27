@@ -6,6 +6,9 @@ from sqlalchemy import func, extract
 from app import app, db, google
 import re
 import io, csv, pandas as pd
+import json
+import plotly.express as px
+import plotly
 import calendar 
 from app.models import User, Category, Transaction, BudgetGoal, RecurringTransaction
 from app.helpers import process_pending_recurring_transactions, get_all_categories, get_budget_categories, calculate_current_spending
@@ -1299,22 +1302,47 @@ def google_login():
 
 @app.route('/auth/google/authorize')
 def google_authorize():
-    token = google.authorize_access_token()
-    resp = google.get('https://www.googleapis.com/oauth2/v3/userinfo')
-    user_info = resp.json()
-    user = User.query.filter_by(email=user_info['email']).first()
+    try:
+        token = google.authorize_access_token()
+        resp = google.get('https://www.googleapis.com/oauth2/v3/userinfo')
+        user_info = resp.json()
+        user = User.query.filter_by(email=user_info['email']).first()
 
-    if user is None:
-        # Create a new user if not exists
-        user = User(
-            email=user_info['email'],
-            first_name=user_info.get('given_name'),
-            last_name=user_info.get('family_name'),
-            google_id=user_info['sub']  # Store Google user ID
-        )
-        db.session.add(user)
-        db.session.commit()
+        if user is None:
+            # Create a new user if not exists
+            user = User(
+                email=user_info['email'],
+                first_name=user_info.get('given_name'),
+                last_name=user_info.get('family_name'),
+                google_id=user_info['sub']  # Store Google user ID
+            )
+            db.session.add(user)
+            db.session.commit()
 
-    login_user(user)
-    flash('Login successful', 'success')
+        login_user(user)
+        flash('Login successful', 'success')
+        return redirect(url_for('home'))
+    except Exception as e:
+        app.logger.error(f"Error during Google login: {e}")
+        flash('An error occurred during Google login. Please try again.', 'error')
+        return redirect(url_for('auth_login'))
+
+@app.route('/delete_user', methods=['POST'])
+@login_required
+def delete_user():
+    try:
+        user_id = request.form.get('user_id')
+        user = User.query.get(user_id)
+        if user:
+            # Delete related records
+            Category.query.filter_by(user_id=user_id).delete()
+            RecurringTransaction.query.filter_by(user_id=user_id).delete()
+            db.session.delete(user)
+            db.session.commit()
+            flash('User deleted successfully', 'success')
+        else:
+            flash('User not found', 'error')
+    except Exception as e:
+        app.logger.error(f"Error deleting user: {e}")
+        flash('An error occurred while deleting the user. Please try again.', 'error')
     return redirect(url_for('home'))
