@@ -1,44 +1,14 @@
-# My Flask App
+# Wifey's Budget App
 
-This is a simple Flask application that demonstrates the structure and organization of a Flask project. 
+Wifey's Budget App is a comprehensive budgeting application designed to help users manage their finances effectively. The app provides tools for tracking income and expenses, setting budget goals, analyzing spending patterns, and more. It aims to empower users to take control of their financial health and achieve their financial goals.
 
-## Project Structure
+## Purpose
 
-```
-my-flask-app
-├── app
-│   ├── __init__.py       # Initializes the Flask application and sets up the app context
-│   ├── routes.py         # Contains route definitions and view functions
-│   ├── errors.py         # Handles error responses and defines error handlers
-│   └── models.py         # Defines database models and initializes the database
-├── run.py                # Entry point for running the application
-└── README.md             # Documentation for the project
-```
+The primary purpose of Wifey's Budget App is to provide users with a user-friendly platform to manage their personal finances. The app offers the following features:
 
-## Installation
+- **Income and Expense Tracking**: Easily record and categorize your income and expenses to keep track of your financial activities.
+- **Budget Goals**: Set and monitor budget goals to ensure you stay on track with your financial plans.
+- **Spending Analysis**: Analyze your spending patterns with detailed reports and visualizations to identify areas where you can save money.
+- **Recurring Transactions**: Automate regular income and expense entries to save time and ensure accuracy.
+- **Secure and Private**: Your financial data is encrypted and protected to ensure your privacy and security.
 
-1. Clone the repository:
-   ```
-   git clone <repository-url>
-   ```
-2. Navigate to the project directory:
-   ```
-   cd my-flask-app
-   ```
-3. Install the required packages:
-   ```
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-To run the application, execute the following command:
-```
-python run.py
-```
-
-The application will start on `http://127.0.0.1:5000/`.
-
-## License
-
-This project is licensed under the MIT License.
