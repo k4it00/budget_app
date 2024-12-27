@@ -1,6 +1,8 @@
+from dotenv import load_dotenv
 import os
 import secrets
 
+load_dotenv()
 class Config:
     SECRET_KEY = secrets.token_urlsafe(16)
     client_id = os.getenv('GOOGLE_CLIENT_ID')
