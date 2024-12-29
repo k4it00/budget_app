@@ -106,6 +106,9 @@ class RecurringTransaction(db.Model):
     next_date = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = db.Column(db.Boolean, server_default='true', nullable=False) 
+
+
 
     # Relationships using back_populates
     user = db.relationship('User', back_populates='recurring_transactions')

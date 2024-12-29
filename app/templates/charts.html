@@ -7,7 +7,7 @@
                 <h6 class="m-0 font-weight-bold text-primary">Income vs Expenses Trends</h6>
                 <div class="chart-controls">
                     <button class="btn btn-sm btn-outline-primary" id="toggleChartView">
-                        <i class="fas fa-chart-line"></i>
+                        <i class="fas fa-chart-line"></i> Toggle View
                     </button>
                 </div>
             </div>
@@ -30,36 +30,73 @@
     </div>
 </div>
 
+<!-- Include ApexCharts -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Get the chart data from the server
     const chartData = {{ chart_data|tojson|safe }};
-    
+    console.log('Chart Data:', chartData); // Debug log
+
     // Monthly Trends Chart
     const monthlyTrendsOptions = {
         series: [{
             name: 'Income',
-            data: chartData.monthly.income
+            data: chartData.monthly.income,
+            color: '#1cc88a' // Green for income
         }, {
             name: 'Expenses',
-            data: chartData.monthly.expenses
+            data: chartData.monthly.expenses,
+            color: '#e74a3b' // Red for expenses
         }],
         chart: {
-            type: 'bar',
-            height: 350
+            height: 350,
+            type: 'line',
+            zoom: {
+                enabled: true
+            },
+            toolbar: {
+                show: true,
+                tools: {
+                    download: true,
+                    selection: true,
+                    zoom: true,
+                    zoomin: true,
+                    zoomout: true,
+                    pan: true,
+                    reset: true
+                }
+            }
         },
-        plotOptions: {
-            bar: {
-                horizontal: false,
-                columnWidth: '55%',
-                endingShape: 'rounded'
+        stroke: {
+            curve: 'smooth',
+            width: 3
+        },
+        markers: {
+            size: 4,
+            hover: {
+                size: 6
             }
         },
         dataLabels: {
             enabled: false
         },
+        grid: {
+            borderColor: '#e7e7e7',
+            row: {
+                colors: ['#f3f3f3', 'transparent'],
+                opacity: 0.5
+            }
+        },
         xaxis: {
-            categories: chartData.monthly.labels
+            categories: chartData.monthly.labels,
+            labels: {
+                rotate: -45,
+                style: {
+                    fontSize: '12px'
+                }
+            }
         },
         yaxis: {
             title: {
@@ -71,15 +108,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         },
-        fill: {
-            opacity: 1
-        },
         tooltip: {
+            shared: true,
+            intersect: false,
             y: {
                 formatter: function(val) {
                     return 'Ft ' + val.toLocaleString();
                 }
             }
+        },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'right'
         }
     };
 
@@ -87,10 +127,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const expenseDistributionOptions = {
         series: chartData.expenses_by_category.values,
         chart: {
-            type: 'pie',
+            type: 'donut',
             height: 350
         },
         labels: chartData.expenses_by_category.labels,
+        colors: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'],
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '70%'
+                }
+            }
+        },
+        dataLabels: {
+            enabled: true,
+            formatter: function(val, opts) {
+                return opts.w.config.labels[opts.seriesIndex] + ': ' + val.toFixed(1) + '%';
+            }
+        },
+        tooltip: {
+            y: {
+                formatter: function(val) {
+                    return 'Ft ' + val.toLocaleString();
+                }
+            }
+        },
+        legend: {
+            position: 'bottom',
+            formatter: function(seriesName, opts) {
+                return seriesName + ': Ft ' + opts.w.globals.series[opts.seriesIndex].toLocaleString();
+            }
+        },
         responsive: [{
             breakpoint: 480,
             options: {
@@ -104,30 +171,43 @@ document.addEventListener('DOMContentLoaded', function() {
         }]
     };
 
-    // Initialize Charts
     try {
+        // Initialize Monthly Trends Chart
         const monthlyTrendsChart = new ApexCharts(
             document.querySelector("#monthlyTrendsChart"), 
             monthlyTrendsOptions
         );
         monthlyTrendsChart.render();
 
+        // Initialize Expense Distribution Chart
         const expenseDistributionChart = new ApexCharts(
             document.querySelector("#expenseDistributionChart"), 
             expenseDistributionOptions
         );
         expenseDistributionChart.render();
 
-        // Toggle chart type
+        // Toggle chart type functionality
         document.getElementById('toggleChartView').addEventListener('click', function() {
             const currentType = monthlyTrendsChart.w.config.chart.type;
-            const newType = currentType === 'bar' ? 'line' : 'bar';
+            const newType = currentType === 'line' ? 'bar' : 'line';
+            
             monthlyTrendsChart.updateOptions({
                 chart: {
                     type: newType
+                },
+                stroke: {
+                    curve: newType === 'line' ? 'smooth' : 'straight',
+                    width: newType === 'line' ? 3 : 0
+                },
+                fill: {
+                    opacity: newType === 'line' ? 0.2 : 1
+                },
+                markers: {
+                    size: newType === 'line' ? 4 : 0
                 }
             });
         });
+
     } catch (error) {
         console.error('Error initializing charts:', error);
     }

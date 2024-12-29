@@ -719,20 +719,26 @@ def expense_analysis():
         start_date = today.replace(day=1)
         end_date = today
 
-        # Get transactions
-        transactions = Transaction.query.filter(
+        # Get regular transactions
+        regular_transactions = Transaction.query.filter(
             Transaction.user_id == current_user.id,
             Transaction.date >= start_date,
             Transaction.date <= end_date
         ).all()
 
+        # Get recurring transactions (without is_active filter for now)
+        recurring_transactions = RecurringTransaction.query.filter(
+            RecurringTransaction.user_id == current_user.id
+        ).all()
+
         # Initialize data structures
         monthly_data = {}
         category_totals = {}
+        total_income = 0.0
+        total_expenses = 0.0
 
-        # Process transactions
-        for transaction in transactions:
-            # Convert amount to float immediately
+        # Process regular transactions
+        for transaction in regular_transactions:
             amount = float(transaction.amount)
             
             # Monthly tracking
@@ -740,49 +746,77 @@ def expense_analysis():
             if month_key not in monthly_data:
                 monthly_data[month_key] = {'income': 0.0, 'expenses': 0.0}
             
-            # Update totals based on transaction type
             if transaction.type.lower() == 'income':
                 monthly_data[month_key]['income'] += amount
+                total_income += amount
             else:  # expense
                 monthly_data[month_key]['expenses'] += amount
+                total_expenses += amount
                 
                 # Category tracking for expenses
                 category_name = transaction.category.name if transaction.category else 'Uncategorized'
                 category_totals[category_name] = category_totals.get(category_name, 0.0) + amount
 
+        # Process recurring transactions
+        current_month = today.strftime('%Y-%m')
+        if current_month not in monthly_data:
+            monthly_data[current_month] = {'income': 0.0, 'expenses': 0.0}
+
+        for recurring in recurring_transactions:
+            # Skip if the transaction has is_active attribute and it's False
+            if hasattr(recurring, 'is_active') and not recurring.is_active:
+                continue
+                
+            amount = float(recurring.amount)
+            
+            if recurring.type.lower() == 'income':
+                monthly_data[current_month]['income'] += amount
+                total_income += amount
+            else:  # expense
+                monthly_data[current_month]['expenses'] += amount
+                total_expenses += amount
+                
+                # Add to category totals
+                category_name = recurring.category.name if recurring.category else 'Uncategorized'
+                category_totals[category_name] = category_totals.get(category_name, 0.0) + amount
+
         # Prepare monthly chart data
         sorted_months = sorted(monthly_data.keys())
-        chart_data = {
-            'monthly': {
-                'labels': [datetime.strptime(m, '%Y-%m').strftime('%b %Y') for m in sorted_months],
-                'income': [float(monthly_data[m]['income']) for m in sorted_months],
-                'expenses': [float(monthly_data[m]['expenses']) for m in sorted_months]
-            },
-            'expenses_by_category': {
-                'labels': list(category_totals.keys()),
-                'values': [float(val) for val in category_totals.values()]
-            }
-        }
+        monthly_labels = [datetime.strptime(m, '%Y-%m').strftime('%b %Y') for m in sorted_months]
+        monthly_income = [monthly_data[m]['income'] for m in sorted_months]
+        monthly_expenses = [monthly_data[m]['expenses'] for m in sorted_months]
 
-        # Calculate totals
-        total_income = sum(chart_data['monthly']['income'])
-        total_expenses = sum(chart_data['monthly']['expenses'])
+        # Sort categories by amount for pie chart
+        sorted_categories = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
+        expense_labels = [cat[0] for cat in sorted_categories]
+        expense_values = [cat[1] for cat in sorted_categories]
+
+        # Calculate summary statistics
         net_savings = total_income - total_expenses
         savings_rate = round((net_savings / total_income * 100) if total_income > 0 else 0, 1)
 
         # If no data, provide default values
-        if not chart_data['monthly']['labels']:
-            chart_data['monthly'] = {
-                'labels': [today.strftime('%b %Y')],
-                'income': [0.0],
-                'expenses': [0.0]
-            }
+        if not monthly_labels:
+            monthly_labels = [today.strftime('%b %Y')]
+            monthly_income = [0.0]
+            monthly_expenses = [0.0]
 
-        if not chart_data['expenses_by_category']['labels']:
-            chart_data['expenses_by_category'] = {
-                'labels': ['No Expenses'],
-                'values': [0.0]
+        if not expense_labels:
+            expense_labels = ['No Expenses']
+            expense_values = [0.0]
+
+        # Create chart_data dictionary
+        chart_data = {
+            'monthly': {
+                'labels': monthly_labels,
+                'income': monthly_income,
+                'expenses': monthly_expenses
+            },
+            'expenses_by_category': {
+                'labels': expense_labels,
+                'values': expense_values
             }
+        }
 
         return render_template('expense_analysis.html',
                              chart_data=chart_data,
