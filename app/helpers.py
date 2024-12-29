@@ -1,7 +1,7 @@
 from flask import current_app, url_for
 from datetime import datetime, timedelta
 from flask_login import current_user 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from app import app, db, login_manager
 from dateutil.relativedelta import relativedelta  # Ensure this import is present
 from app.models import Category, Transaction, RecurringTransaction
@@ -11,6 +11,7 @@ from dateutil.relativedelta import relativedelta
 from datetime import datetime
 import logging
 import pandas as pd
+import calendar
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -370,90 +371,58 @@ class BudgetGoal:
         }
 
 def process_pending_recurring_transactions():
-    """Process any pending recurring transactions immediately"""
+    """Process any pending recurring transactions"""
     try:
-        now = datetime.now()
-        recurring_transactions = RecurringTransaction.query.filter_by(is_active=True).all()
-        needs_processing = False
-        processed_count = 0
+        today = datetime.utcnow().date()
+        # Get all active recurring transactions that are due
+        recurring_transactions = RecurringTransaction.query.filter(
+            RecurringTransaction.next_date <= today,
+            or_(
+                RecurringTransaction.end_date == None,
+                RecurringTransaction.end_date >= today
+            )
+        ).all()
 
+        transactions_created = 0
         for recurring in recurring_transactions:
-            try:
-                # Check if transaction has ended
-                if recurring.end_date and recurring.end_date < now:
-                    recurring.is_active = False
-                    db.session.add(recurring)
-                    continue
+            # Create actual transaction
+            transaction = Transaction(
+                user_id=recurring.user_id,
+                category_id=recurring.category_id,
+                amount=recurring.amount,
+                type=recurring.type,
+                date=recurring.next_date,
+                description=f"Recurring: {recurring.name}",
+                recurring_id=recurring.id
+            )
+            db.session.add(transaction)
 
-                last_processed = recurring.last_processed or recurring.start_date
-                next_date = None
+            # Update next_date based on frequency
+            if recurring.frequency == 'daily':
+                recurring.next_date += timedelta(days=1)
+            elif recurring.frequency == 'weekly':
+                recurring.next_date += timedelta(weeks=1)
+            elif recurring.frequency == 'monthly':
+                # Add one month to next_date
+                next_month = recurring.next_date.replace(day=1) + timedelta(days=32)
+                recurring.next_date = next_month.replace(day=min(recurring.next_date.day, calendar.monthrange(next_month.year, next_month.month)[1]))
+            elif recurring.frequency == 'yearly':
+                # Add one year to next_date
+                try:
+                    recurring.next_date = recurring.next_date.replace(year=recurring.next_date.year + 1)
+                except ValueError:  # Handle Feb 29 in leap years
+                    recurring.next_date = recurring.next_date.replace(year=recurring.next_date.year + 1, day=28)
 
-                # Calculate next processing date based on frequency
-                if recurring.frequency == 'daily':
-                    next_date = last_processed + timedelta(days=1)
-                elif recurring.frequency == 'weekly':
-                    next_date = last_processed + timedelta(weeks=1)
-                elif recurring.frequency == 'monthly':
-                    next_date = last_processed + relativedelta(months=1)
-                elif recurring.frequency == 'yearly':
-                    next_date = last_processed + relativedelta(years=1)
+            transactions_created += 1
 
-                # Check if transaction needs processing
-                if next_date and next_date <= now:
-                    needs_processing = True
-                    
-                    # Process all pending occurrences up to now
-                    while next_date <= now:
-                        # Fetch the category ID
-                        category = Category.query.filter_by(name=recurring.category_name, user_id=recurring.user_id).first()
-                        if not category:
-                            current_app.logger.error(f"Category '{recurring.category_name}' not found for user {recurring.user_id}")
-                            break
-
-                        # Create new transaction
-                        new_transaction = Transaction(
-                            date=next_date,
-                            type=recurring.type,
-                            category_id=category.id,  # Use category.id instead of category.name
-                            amount=recurring.amount,
-                            description=f"[Recurring] {recurring.description}" if recurring.description else "[Recurring Transaction]",
-                            user_id=recurring.user_id
-                        )
-                        
-                        db.session.add(new_transaction)
-                        recurring.last_processed = next_date
-                        processed_count += 1
-                        
-                        # Calculate next date
-                        if recurring.frequency == 'daily':
-                            next_date += timedelta(days=1)
-                        elif recurring.frequency == 'weekly':
-                            next_date += timedelta(weeks=1)
-                        elif recurring.frequency == 'monthly':
-                            next_date += relativedelta(months=1)
-                        elif recurring.frequency == 'yearly':
-                            next_date += relativedelta(years=1)
-
-            except Exception as e:
-                current_app.logger.error(f"Error processing recurring transaction {recurring.id}: {str(e)}")
-                continue
-
-        # Commit changes if any transactions were processed
-        if needs_processing:
-            try:
-                db.session.commit()
-                current_app.logger.info(f"Successfully processed {processed_count} recurring transactions")
-            except Exception as e:
-                db.session.rollback()
-                current_app.logger.error(f"Error committing recurring transactions: {str(e)}")
-        else:
-            current_app.logger.info("No pending recurring transactions to process")
-
-        return processed_count
+        db.session.commit()
+        return transactions_created
 
     except Exception as e:
-        current_app.logger.error(f"Error checking recurring transactions: {str(e)}")
-        return 0
+        current_app.logger.error(f"Error processing recurring transactions: {str(e)}")
+        db.session.rollback()
+        raise e
+
 def format_currency(amount):
     if amount is None or not isinstance(amount, (int, float)):
         return "0 Ft"
@@ -507,6 +476,65 @@ def ensure_user_has_categories(user_id):
             current_app.logger.error(f"Error creating default categories: {str(e)}")
             return False
     return True
+
+def ensure_user_has_recurring_transactions(user_id):
+    """Check if user has recurring transactions and create default ones if they don't"""
+    existing_recurring = RecurringTransaction.query.filter_by(user_id=user_id).first()
+    
+    if not existing_recurring:
+        # Get the user's categories
+        salary_category = Category.query.filter_by(user_id=user_id, name='Salary').first()
+        rent_category = Category.query.filter_by(user_id=user_id, name='Rent').first()
+        utilities_category = Category.query.filter_by(user_id=user_id, name='Utilities').first()
+
+        default_recurring = [
+            {
+                'name': 'Monthly Salary',
+                'type': 'Income',
+                'amount': 0.0,
+                'frequency': 'monthly',
+                'category_id': salary_category.id if salary_category else None,
+                'start_date': datetime.utcnow()
+            },
+            {
+                'name': 'Rent Payment',
+                'type': 'Expense',
+                'amount': 0.0,
+                'frequency': 'monthly',
+                'category_id': rent_category.id if rent_category else None,
+                'start_date': datetime.utcnow()
+            },
+            {
+                'name': 'Utility Bills',
+                'type': 'Expense',
+                'amount': 0.0,
+                'frequency': 'monthly',
+                'category_id': utilities_category.id if utilities_category else None,
+                'start_date': datetime.utcnow()
+            }
+        ]
+        
+        try:
+            for rec_data in default_recurring:
+                recurring = RecurringTransaction(
+                    user_id=user_id,
+                    name=rec_data['name'],
+                    type=rec_data['type'],
+                    amount=rec_data['amount'],
+                    frequency=rec_data['frequency'],
+                    category_id=rec_data['category_id'],
+                    start_date=rec_data['start_date'],
+                    next_date=rec_data['start_date']
+                )
+                db.session.add(recurring)
+            db.session.commit()
+            return True
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating default recurring transactions: {str(e)}")
+            return False
+    return True
+
 
 def utility_processor():
     return dict(

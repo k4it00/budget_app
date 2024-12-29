@@ -50,16 +50,18 @@ class Transaction(db.Model):
     __tablename__ = 'transactions'
     
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # Note: 'users.id' not 'user.id'
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
     amount = db.Column(db.Float, nullable=False)
+    type = db.Column(db.String(20), nullable=False)  # 'Income' or 'Expense'
+    date = db.Column(db.Date, nullable=False)
     description = db.Column(db.String(200))
-    date = db.Column(db.DateTime, nullable=False)
-    type = db.Column(db.String(20), nullable=False)  # Add this line for transaction type
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    recurring_id = db.Column(db.Integer, db.ForeignKey('recurring_transactions.id'))
     
-    # Define relationships
-    category = db.relationship('Category', back_populates='transactions', lazy=True)
-    user = db.relationship('User', back_populates='transactions', lazy=True)
+    # Define relationships using back_populates
+    category = db.relationship('Category', back_populates='transactions')
+    user = db.relationship('User', back_populates='transactions')
+    recurring = db.relationship('RecurringTransaction', back_populates='transactions')
 
 class BudgetGoal(db.Model):
     __tablename__ = 'budget_goals'
@@ -89,18 +91,32 @@ class BudgetGoal(db.Model):
             'progress': round((self.current_amount / self.target_amount) * 100) if self.target_amount > 0 else 0
         }
 
-
 class RecurringTransaction(db.Model):
     __tablename__ = 'recurring_transactions'
-    
+
     id = db.Column(db.Integer, primary_key=True)
-    amount = db.Column(db.Float, nullable=False)
-    description = db.Column(db.String(200))
-    frequency = db.Column(db.String(50), nullable=False)
-    next_date = db.Column(db.DateTime, nullable=False)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    
-    # Define relationships
-    category = db.relationship('Category', back_populates='recurring_transactions', lazy=True)
-    user = db.relationship('User', back_populates='recurring_transactions', lazy=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(20), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    frequency = db.Column(db.String(20), nullable=False)
+    start_date = db.Column(db.DateTime, nullable=False)
+    end_date = db.Column(db.DateTime, nullable=True)
+    next_date = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships using back_populates
+    user = db.relationship('User', back_populates='recurring_transactions')
+    category = db.relationship('Category', back_populates='recurring_transactions')
+    transactions = db.relationship('Transaction', back_populates='recurring')
+
+    # Relationships using back_populates
+    user = db.relationship('User', back_populates='recurring_transactions')
+    category = db.relationship('Category', back_populates='recurring_transactions')
+
+    def __repr__(self):
+        return f'<RecurringTransaction {self.name}>'
+
+

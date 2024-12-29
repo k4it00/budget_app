@@ -1,14 +1,21 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Budget Goals</h2>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#goalModal">
-            <i class="fas fa-plus"></i> Create New Goal
-        </button>
+<div class="container-fluid py-4">
+    <div class="card">
+        <div class="card-header">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h2 class="mb-0">Budget Goals</h2>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#goalModal">
+                        <i class="fas fa-plus"></i> Create New Goal
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
-
     <!-- Goals Container -->
     <div class="row g-4" id="goals-container">
         {% for goal in goals %}
@@ -86,6 +93,9 @@
             </div>
         </div>
     </div>
+
+      <!-- Include Recurring Transactions Section -->
+      {% include 'recurring.html' %}
 </div>
 {% endblock %}
 

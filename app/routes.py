@@ -15,7 +15,7 @@ import calendar
 from app.helpers import set_user_password, check_user_password
 from sqlalchemy.exc import SQLAlchemyError 
 from app.models import User, Category, Transaction, BudgetGoal, RecurringTransaction
-from app.helpers import process_pending_recurring_transactions, get_all_categories, get_budget_categories, calculate_current_spending, format_currency
+from app.helpers import ensure_user_has_recurring_transactions, process_pending_recurring_transactions, get_all_categories, get_budget_categories, calculate_current_spending, format_currency
 import secrets
 import logging
 from flask_mail import Message
@@ -403,148 +403,162 @@ def manage_categories():
         flash('An error occurred while managing categories', 'error')
         return redirect(url_for('home'))
 
-@app.route('/add_recurring_transaction', methods=['POST'])
+@app.route('/add_recurring', methods=['POST'])
 @login_required
-def add_recurring_transaction():
+def add_recurring():
     try:
         data = request.get_json()
-        
-        # Validate required fields
-        required_fields = ['category_id', 'amount', 'description', 'frequency', 'start_date']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({'error': f'{field.replace("_", " ").title()} is required'}), 400
-
-        # Parse and validate the date
-        try:
-            start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
-            
-            # Get the first day of the previous month
-            today = datetime.now()
-            first_day_last_month = datetime(today.year, today.month - 1 if today.month > 1 else 12, 1)
-            if today.month == 1:
-                first_day_last_month = first_day_last_month.replace(year=today.year - 1)
-            
-            # Validate date is not in the future
-            if start_date > datetime.now():
-                return jsonify({'error': 'Start date cannot be in the future'}), 400
-                
-            # Validate date is not too far in the past (optional)
-            max_past_date = datetime.now() - timedelta(days=365 * 2)  # 2 years ago
-            if start_date < max_past_date:
-                return jsonify({'error': 'Start date cannot be more than 2 years in the past'}), 400
-                
-        except ValueError:
-            return jsonify({'error': 'Invalid date format'}), 400
-        
-        # Create new recurring transaction
-        recurring = RecurringTransaction(
+        new_recurring = RecurringTransaction(
             user_id=current_user.id,
-            type='expense',
-            category_id=int(data['category_id']),
+            name=data['name'],
+            type=data['type'],
             amount=float(data['amount']),
-            description=data['description'],
             frequency=data['frequency'],
-            start_date=start_date,
-            is_active=True
+            category_id=data.get('category_id'),
+            start_date=datetime.strptime(data['start_date'], '%Y-%m-%d'),
+            end_date=datetime.strptime(data['end_date'], '%Y-%m-%d') if data['end_date'] else None,
+            next_date=datetime.strptime(data['start_date'], '%Y-%m-%d')
         )
         
-        db.session.add(recurring)
+        db.session.add(new_recurring)
         db.session.commit()
         
         return jsonify({'success': True, 'message': 'Recurring transaction added successfully'})
-        
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error adding recurring transaction: {str(e)}")
-        return jsonify({'error': f'Error adding recurring transaction: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': str(e)}), 400
 
-@app.route('/get_recurring_transaction/<int:id>')
+@app.route('/get_recurring/<int:id>')
 @login_required
-def get_recurring_transaction(id):
+def get_recurring(id):
     try:
-        # Ensure user has default categories
-        if not ensure_user_has_categories(current_user.id):
-            return jsonify({'error': 'Error creating default categories'}), 500
-
-        recurring = RecurringTransaction.query.filter_by(
-            id=id,
-            user_id=current_user.id
-        ).first_or_404()
-        
+        recurring = RecurringTransaction.query.get_or_404(id)
+        if recurring.user_id != current_user.id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+            
         return jsonify({
-            'id': recurring.id,
-            'type': recurring.type,
-            'category_id': recurring.category_id,
-            'amount': recurring.amount,
-            'description': recurring.description,
-            'frequency': recurring.frequency,
-            'next_date': recurring.next_date.strftime('%Y-%m-%d')
+            'success': True,
+            'recurring': {
+                'id': recurring.id,
+                'name': recurring.name,
+                'type': recurring.type,
+                'amount': recurring.amount,
+                'frequency': recurring.frequency,
+                'category_id': recurring.category_id,
+                'start_date': recurring.start_date.strftime('%Y-%m-%d'),
+                'end_date': recurring.end_date.strftime('%Y-%m-%d') if recurring.end_date else None
+            }
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error getting recurring transaction: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/update_recurring/<int:id>', methods=['PUT'])
+@login_required
+def update_recurring(id):
+    try:
+        recurring = RecurringTransaction.query.get_or_404(id)
+        if recurring.user_id != current_user.id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+        data = request.get_json()
+        recurring.name = data['name']
+        recurring.type = data['type']
+        recurring.amount = float(data['amount'])
+        recurring.frequency = data['frequency']
+        recurring.category_id = data.get('category_id')
+        recurring.start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
+        recurring.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d') if data['end_date'] else None
+        
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Recurring transaction updated successfully'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating recurring transaction: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/delete_recurring/<int:id>', methods=['DELETE'])
+@login_required
+def delete_recurring(id):
+    try:
+        recurring = RecurringTransaction.query.get_or_404(id)
+        if recurring.user_id != current_user.id:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+        db.session.delete(recurring)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Recurring transaction deleted successfully'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting recurring transaction: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/process_recurring', methods=['POST'])
+@login_required
+def process_recurring():
+    try:
+        from app.helpers import process_pending_recurring_transactions
+        transactions_created = process_pending_recurring_transactions()
+        return jsonify({
+            'success': True, 
+            'message': f'Successfully processed {transactions_created} recurring transaction(s)'
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error processing recurring transactions: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+    
+@app.route('/restore_default_categories', methods=['POST'])
+@login_required
+def restore_default_categories():
+    try:
+        default_categories = [
+            {'name': 'Salary', 'type': 'income'},  # Note: lowercase type
+            {'name': 'Freelance', 'type': 'income'},
+            {'name': 'Investments', 'type': 'income'},
+            {'name': 'Groceries', 'type': 'expense'},
+            {'name': 'Rent', 'type': 'expense'},
+            {'name': 'Utilities', 'type': 'expense'},
+            {'name': 'Transportation', 'type': 'expense'},
+            {'name': 'Entertainment', 'type': 'expense'}
+        ]
+        
+        categories_added = 0
+        for cat_data in default_categories:
+            # Check if category already exists
+            existing_category = Category.query.filter_by(
+                user_id=current_user.id,
+                name=cat_data['name'],
+                type=cat_data['type']
+            ).first()
+            
+            if not existing_category:
+                category = Category(
+                    name=cat_data['name'],
+                    type=cat_data['type'],
+                    user_id=current_user.id,
+                    description=f"Default {cat_data['type']} category",
+                    budget_limit=0.0
+                )
+                db.session.add(category)
+                categories_added += 1
+        
+        db.session.commit()
+        
+        message = f"Added {categories_added} default categories" if categories_added > 0 else "All default categories already exist"
+        return jsonify({
+            'success': True,
+            'message': message,
+            'categories_added': categories_added
         })
         
     except Exception as e:
-        current_app.logger.error(f'Error getting recurring transaction: {str(e)}')
-        return jsonify({'error': 'Error loading recurring transaction details'}), 500
-
-@app.route('/edit_recurring_transaction/<int:id>', methods=['POST'])
-@login_required
-def edit_recurring_transaction(id):
-    try:
-        # Ensure user has default categories
-        if not ensure_user_has_categories(current_user.id):
-            return jsonify({'error': 'Error creating default categories'}), 500
-
-        recurring = RecurringTransaction.query.filter_by(
-            id=id,
-            user_id=current_user.id
-        ).first_or_404()
-        
-        data = request.get_json()
-        
-        # Validate category belongs to user
-        category = Category.query.filter_by(
-            id=int(data['category_id']),
-            user_id=current_user.id
-        ).first()
-        
-        if not category:
-            return jsonify({'error': 'Invalid category'}), 400
-
-        # Update fields
-        recurring.type = data['type'].lower()  # Ensure lowercase
-        recurring.category_id = category.id
-        recurring.amount = float(data['amount'])
-        recurring.description = data['description']
-        recurring.frequency = data['frequency']
-        recurring.next_date = datetime.strptime(data['next_date'], '%Y-%m-%d').date()
-        
-        db.session.commit()
-        
-        return jsonify({'success': True, 'message': 'Recurring transaction updated successfully'})
-        
-    except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f'Error updating recurring transaction: {str(e)}')
-        return jsonify({'error': 'Error updating recurring transaction'}), 500
-
-@app.route('/delete_recurring_transaction/<int:id>', methods=['POST'])
-@login_required
-def delete_recurring_transaction(id):
-    try:
-        recurring = RecurringTransaction.query.filter_by(
-            id=id,
-            user_id=current_user.id
-        ).first_or_404()
-        
-        db.session.delete(recurring)
-        db.session.commit()
-        
-        return jsonify({'success': True, 'message': 'Recurring transaction deleted successfully'})
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f'Error deleting recurring transaction: {str(e)}')
-        return jsonify({'error': 'Error deleting recurring transaction'}), 500
+        current_app.logger.error(f"Error restoring default categories: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
 
 @app.route('/account_settings', methods=['GET', 'POST'])
 @login_required
@@ -1138,6 +1152,11 @@ def budget_goals():
     try:
         # Ensure user has default categories
         ensure_user_has_categories(current_user.id)
+        ensure_user_has_recurring_transactions(current_user.id)
+        # Get all data for the user
+        goals = BudgetGoal.query.filter_by(user_id=current_user.id).all()
+        recurring_transactions = RecurringTransaction.query.filter_by(user_id=current_user.id).all()
+        categories = Category.query.filter_by(user_id=current_user.id).all()
         
         # Get user's goals
         goals = BudgetGoal.query.filter_by(user_id=current_user.id).all()
@@ -1175,8 +1194,11 @@ def budget_goals():
             else:
                 goal.progress = 0
 
-        return render_template('budget_goals.html', goals=goals)
-
+        return render_template('budget_goals.html', 
+                             goals=goals, 
+                             recurring_transactions=recurring_transactions,
+                             categories=categories)
+    
     except Exception as e:
         current_app.logger.error(f"Error in budget_goals route: {str(e)}", exc_info=True)
         flash('An error occurred while loading budget goals.', 'error')
