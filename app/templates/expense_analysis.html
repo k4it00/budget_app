@@ -4,11 +4,64 @@
 
 {% block styles %}
 <link href="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.css" rel="stylesheet">
-<link href="{{ url_for('static', filename='css/expense_analysis.css') }}" rel="stylesheet">
+<style>
+.border-left-primary { border-left: 4px solid #4e73df !important; }
+.border-left-success { border-left: 4px solid #1cc88a !important; }
+.border-left-info { border-left: 4px solid #36b9cc !important; }
+.border-left-danger { border-left: 4px solid #e74a3b !important; }
+.text-xs { font-size: 0.7rem; }
+.text-gray-800 { color: #5a5c69 !important; }
+.text-gray-300 { color: #dddfeb !important; }
+.font-weight-bold { font-weight: 700 !important; }
+.progress-sm { height: 0.5rem !important; }
+
+.card {
+    transition: transform 0.2s ease-in-out;
+    border: none;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.shadow-hover:hover {
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+}
+
+.card-stats {
+    border-radius: 15px;
+}
+
+.icon-circle {
+    height: 2.5rem;
+    width: 2.5rem;
+    border-radius: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(78, 115, 223, 0.1);
+}
+
+.icon-circle.bg-primary-light {
+    background-color: rgba(78, 115, 223, 0.1);
+}
+
+.icon-circle.bg-success-light {
+    background-color: rgba(28, 200, 138, 0.1);
+}
+
+.icon-circle.bg-info-light {
+    background-color: rgba(54, 185, 204, 0.1);
+}
+
+.icon-circle.bg-danger-light {
+    background-color: rgba(231, 74, 59, 0.1);
+}
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-4">
     <!-- Header Section -->
     <div class="row mb-4">
         <div class="col-md-8">
@@ -32,92 +85,108 @@
     </div>
 
     <!-- Summary Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card summary-card income-card">
+    <div class="row g-4 mb-4">
+        <!-- Total Income Card -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-stats shadow-hover h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h6 class="card-subtitle mb-2">Total Income</h6>
-                            <h3 class="card-title mb-0">{{ "${:,.2f}".format(total_income) }}</h3>
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Income
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                Ft {{ "{:,.0f}".format(total_income) }}
+                            </div>
                         </div>
-                        <div class="icon-container">
-                            <i class="fas fa-arrow-up"></i>
+                        <div class="col-auto">
+                            <div class="icon-circle bg-primary-light">
+                                <i class="fas fa-money-bill-wave text-primary"></i>
+                            </div>
                         </div>
-                    </div>
-                    <div class="trend mt-2">
-                        <span class="badge {% if income_trend >= 0 %}bg-success{% else %}bg-danger{% endif %}">
-                            <i class="fas fa-{% if income_trend >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
-                            {{ "%.1f"|format(income_trend|abs) }}%
-                        </span>
-                        <small class="text-muted">vs last period</small>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card summary-card expense-card">
+        <!-- Total Expenses Card -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-stats shadow-hover h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h6 class="card-subtitle mb-2">Total Expenses</h6>
-                            <h3 class="card-title mb-0">{{ "${:,.2f}".format(total_expenses) }}</h3>
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Total Expenses
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                Ft {{ "{:,.0f}".format(total_expenses) }}
+                            </div>
                         </div>
-                        <div class="icon-container">
-                            <i class="fas fa-arrow-down"></i>
+                        <div class="col-auto">
+                            <div class="icon-circle bg-danger-light">
+                                <i class="fas fa-shopping-cart text-danger"></i>
+                            </div>
                         </div>
-                    </div>
-                    <div class="trend mt-2">
-                        <span class="badge {% if expense_trend <= 0 %}bg-success{% else %}bg-danger{% endif %}">
-                            <i class="fas fa-{% if expense_trend <= 0 %}arrow-down{% else %}arrow-up{% endif %}"></i>
-                            {{ "%.1f"|format(expense_trend|abs) }}%
-                        </span>
-                        <small class="text-muted">vs last period</small>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card summary-card savings-card">
+        <!-- Net Savings Card -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-stats shadow-hover h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h6 class="card-subtitle mb-2">Net Savings</h6>
-                            <h3 class="card-title mb-0">{{ "${:,.2f}".format(net_income) }}</h3>
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Net Savings
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                Ft {{ "{:,.0f}".format(net_savings) }}
+                            </div>
                         </div>
-                        <div class="icon-container">
-                            <i class="fas fa-piggy-bank"></i>
+                        <div class="col-auto">
+                            <div class="icon-circle bg-success-light">
+                                <i class="fas fa-piggy-bank text-success"></i>
+                            </div>
                         </div>
-                    </div>
-                    <div class="trend mt-2">
-                        <span class="badge {% if savings_rate >= 20 %}bg-success{% elif savings_rate >= 10 %}bg-warning{% else %}bg-danger{% endif %}">
-                            {{ "%.1f"|format(savings_rate) }}%
-                        </span>
-                        <small class="text-muted">savings rate</small>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card summary-card budget-card">
+        <!-- Savings Rate Card -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card card-stats shadow-hover h-100">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <h6 class="card-subtitle mb-2">Budget Status</h6>
-                            <h3 class="card-title mb-0">{{ "%.1f"|format(budget_usage) }}%</h3>
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Savings Rate
+                            </div>
+                            <div class="row no-gutters align-items-center">
+                                <div class="col-auto">
+                                    <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">
+                                        {{ "%.1f"|format(savings_rate) }}%
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="progress progress-sm mr-2">
+                                        <div class="progress-bar bg-info" role="progressbar" 
+                                             style="width: {{ savings_rate }}%" 
+                                             aria-valuenow="{{ savings_rate }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="icon-container">
-                            <i class="fas fa-chart-pie"></i>
+                        <div class="col-auto">
+                            <div class="icon-circle bg-info-light">
+                                <i class="fas fa-percent text-info"></i>
+                            </div>
                         </div>
-                    </div>
-                    <div class="trend mt-2">
-                        <span class="badge {% if budget_remaining > 0 %}bg-success{% else %}bg-danger{% endif %}">
-                            {{ "${:,.2f}".format(budget_remaining) }}
-                        </span>
-                        <small class="text-muted">remaining</small>
                     </div>
                 </div>
             </div>
@@ -125,81 +194,12 @@
     </div>
 
     <!-- Charts Section -->
-    <div class="row g-4 mb-4">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Monthly Trends</h5>
-                </div>
-                <div class="card-body">
-                    <div id="monthlyTrendsChart"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Expense Distribution</h5>
-                </div>
-                <div class="card-body">
-                    <div id="expenseDistributionChart"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Budget Comparison -->
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Budget vs Actual</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Category</th>
-                            <th>Budget</th>
-                            <th>Spent</th>
-                            <th>Remaining</th>
-                            <th>Progress</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in budget_comparison %}
-                        <tr>
-                            <td>{{ item.category }}</td>
-                            <td>{{ "${:,.2f}".format(item.budget) }}</td>
-                            <td>{{ "${:,.2f}".format(item.spent) }}</td>
-                            <td>{{ "${:,.2f}".format(item.remaining) }}</td>
-                            <td style="width: 30%;">
-                                <div class="progress">
-                                    <div class="progress-bar {% if item.percentage > 100 %}bg-danger{% elif item.percentage > 80 %}bg-warning{% else %}bg-success{% endif %}"
-                                         role="progressbar"
-                                         style="width: {{ min(item.percentage, 100) }}%"
-                                         aria-valuenow="{{ item.percentage }}"
-                                         aria-valuemin="0"
-                                         aria-valuemax="100">
-                                        {{ "%.1f"|format(item.percentage) }}%
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    {% include 'charts.html' %}
 </div>
 {% endblock %}
-
+<script>
+    console.log('Chart Data:', {{ chart_data | tojson }});
+</script>
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js"></script>
-<script>
-    // Pass data from Flask to JavaScript
-    const chartData = {{ chart_data|tojson|safe }};
-</script>
-<script src="{{ url_for('static', filename='js/expense_analysis.js') }}"></script>
 {% endblock %}

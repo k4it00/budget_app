@@ -1,0 +1,135 @@
+<!-- Charts Section -->
+<div class="row g-4 mb-4">
+    <!-- Monthly Trends Chart -->
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-hover h-100">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Income vs Expenses Trends</h6>
+                <div class="chart-controls">
+                    <button class="btn btn-sm btn-outline-primary" id="toggleChartView">
+                        <i class="fas fa-chart-line"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="monthlyTrendsChart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expense Distribution Chart -->
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-hover h-100">
+            <div class="card-header bg-white py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Expense Distribution</h6>
+            </div>
+            <div class="card-body">
+                <div id="expenseDistributionChart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartData = {{ chart_data|tojson|safe }};
+    
+    // Monthly Trends Chart
+    const monthlyTrendsOptions = {
+        series: [{
+            name: 'Income',
+            data: chartData.monthly.income
+        }, {
+            name: 'Expenses',
+            data: chartData.monthly.expenses
+        }],
+        chart: {
+            type: 'bar',
+            height: 350
+        },
+        plotOptions: {
+            bar: {
+                horizontal: false,
+                columnWidth: '55%',
+                endingShape: 'rounded'
+            }
+        },
+        dataLabels: {
+            enabled: false
+        },
+        xaxis: {
+            categories: chartData.monthly.labels
+        },
+        yaxis: {
+            title: {
+                text: 'Amount (Ft)'
+            },
+            labels: {
+                formatter: function(val) {
+                    return 'Ft ' + val.toLocaleString();
+                }
+            }
+        },
+        fill: {
+            opacity: 1
+        },
+        tooltip: {
+            y: {
+                formatter: function(val) {
+                    return 'Ft ' + val.toLocaleString();
+                }
+            }
+        }
+    };
+
+    // Expense Distribution Chart
+    const expenseDistributionOptions = {
+        series: chartData.expenses_by_category.values,
+        chart: {
+            type: 'pie',
+            height: 350
+        },
+        labels: chartData.expenses_by_category.labels,
+        responsive: [{
+            breakpoint: 480,
+            options: {
+                chart: {
+                    height: 300
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }]
+    };
+
+    // Initialize Charts
+    try {
+        const monthlyTrendsChart = new ApexCharts(
+            document.querySelector("#monthlyTrendsChart"), 
+            monthlyTrendsOptions
+        );
+        monthlyTrendsChart.render();
+
+        const expenseDistributionChart = new ApexCharts(
+            document.querySelector("#expenseDistributionChart"), 
+            expenseDistributionOptions
+        );
+        expenseDistributionChart.render();
+
+        // Toggle chart type
+        document.getElementById('toggleChartView').addEventListener('click', function() {
+            const currentType = monthlyTrendsChart.w.config.chart.type;
+            const newType = currentType === 'bar' ? 'line' : 'bar';
+            monthlyTrendsChart.updateOptions({
+                chart: {
+                    type: newType
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Error initializing charts:', error);
+    }
+});
+</script>

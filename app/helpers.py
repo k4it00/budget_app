@@ -83,6 +83,63 @@ def check_user_password(user, password):
         return check_password_hash(user.password_hash, password)
     return False
 
+def process_monthly_trends(transactions):
+    """Process transactions into monthly income and expenses data for charts"""
+    try:
+        monthly_data = {}
+        
+        # Initialize the current month if no transactions
+        if not transactions:
+            today = datetime.utcnow()
+            month_key = today.strftime('%Y-%m')
+            monthly_data[month_key] = {'income': 0.0, 'expenses': 0.0}
+        
+        # Process transactions
+        for transaction in transactions:
+            month_key = transaction.date.strftime('%Y-%m')
+            if month_key not in monthly_data:
+                monthly_data[month_key] = {'income': 0.0, 'expenses': 0.0}
+            
+            amount = float(transaction.amount)
+            if transaction.type.lower() == 'income':
+                monthly_data[month_key]['income'] += amount
+            else:
+                monthly_data[month_key]['expenses'] += amount
+
+        # Sort months and prepare return data
+        sorted_months = sorted(monthly_data.keys())
+        
+        return {
+            'labels': [datetime.strptime(m, '%Y-%m').strftime('%b %Y') for m in sorted_months],
+            'income': [float(monthly_data[m]['income']) for m in sorted_months],
+            'expenses': [float(monthly_data[m]['expenses']) for m in sorted_months]
+        }
+    except Exception as e:
+        print(f"Error in process_monthly_trends: {str(e)}")
+        return {'labels': [], 'income': [], 'expenses': []}
+
+def process_expense_distribution(transactions):
+    """Process transactions into category-based expense distribution data for charts"""
+    try:
+        category_totals = {}
+        
+        for transaction in transactions:
+            if transaction.type.lower() == 'expense' and transaction.category:
+                cat_name = str(transaction.category.name)
+                if cat_name not in category_totals:
+                    category_totals[cat_name] = 0.0
+                category_totals[cat_name] += float(transaction.amount)
+
+        sorted_categories = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
+        
+        return {
+            'labels': [str(cat[0]) for cat in sorted_categories],
+            'values': [float(cat[1]) for cat in sorted_categories]
+        }
+    except Exception as e:
+        print(f"Error in process_expense_distribution: {str(e)}")
+        return {'labels': [], 'values': []}
+
 def get_or_create_category(name: str, type: str, user_id: int) -> Category:
     
     try:

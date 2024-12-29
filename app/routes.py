@@ -1,4 +1,4 @@
-from app.helpers import ensure_user_has_categories
+from app.helpers import ensure_user_has_categories, process_monthly_trends, process_expense_distribution
 from flask import render_template, request, redirect, url_for, flash, jsonify, Response, current_app, session
 from flask_login import login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta, date
@@ -708,157 +708,95 @@ def reset_data():
         flash('Error resetting data', 'error')
     return redirect(url_for('account_settings'))
 
+from decimal import Decimal
+
 @app.route('/expense_analysis')
 @login_required
 def expense_analysis():
     try:
-        app.logger.debug("Starting expense analysis")
-        
-        # Get date range (default to current month)
-        today = datetime.today()
-        start_date = datetime(today.year, today.month, 1)
-        last_day = calendar.monthrange(today.year, today.month)[1]
-        end_date = datetime(today.year, today.month, last_day, 23, 59, 59)
+        # Get the date range (default to current month)
+        today = datetime.utcnow()
+        start_date = today.replace(day=1)
+        end_date = today
 
-        # Get transactions for the period
+        # Get transactions
         transactions = Transaction.query.filter(
             Transaction.user_id == current_user.id,
             Transaction.date >= start_date,
             Transaction.date <= end_date
         ).all()
 
-        # Calculate totals
-        total_income = sum(t.amount for t in transactions if t.type == 'income')
-        total_expenses = sum(t.amount for t in transactions if t.type == 'expense')
-        net_income = total_income - total_expenses
-        
-        app.logger.debug(f"Total income: {total_income}, Total expenses: {total_expenses}")
+        # Initialize data structures
+        monthly_data = {}
+        category_totals = {}
 
-        # Get previous month's data for trends
-        prev_month_start = start_date - timedelta(days=start_date.day)
-        prev_month_end = start_date - timedelta(days=1)
-        prev_transactions = Transaction.query.filter(
-            Transaction.user_id == current_user.id,
-            Transaction.date >= prev_month_start,
-            Transaction.date <= prev_month_end
-        ).all()
-
-        # Calculate previous month totals
-        prev_income = sum(t.amount for t in prev_transactions if t.type == 'income')
-        prev_expenses = sum(t.amount for t in prev_transactions if t.type == 'expense')
-
-        # Calculate trends (percentage change)
-        if prev_income > 0:
-            income_trend = ((total_income - prev_income) / prev_income) * 100
-        else:
-            income_trend = 0
-
-        if prev_expenses > 0:
-            expense_trend = ((total_expenses - prev_expenses) / prev_expenses) * 100
-        else:
-            expense_trend = 0
-
-        # Calculate savings rate
-        savings_rate = (net_income / total_income * 100) if total_income > 0 else 0
-
-        # Get category data
-        categories_data = {}
+        # Process transactions
         for transaction in transactions:
-            category_name = transaction.category.name
-            if transaction.type == 'expense':
-                if category_name not in categories_data:
-                    categories_data[category_name] = 0
-                categories_data[category_name] += transaction.amount
-
-        # Get budget data
-        budget_goals = BudgetGoal.query.filter_by(user_id=current_user.id).all()
-        budget_comparison = []
-        total_budget = 0
-        total_spent = 0
-
-        for goal in budget_goals:
-            spent = sum(t.amount for t in transactions 
-                       if t.category_id == goal.category_id and t.type == 'expense')
+            # Convert amount to float immediately
+            amount = float(transaction.amount)
             
-            total_budget += float(goal.amount)
-            total_spent += spent
+            # Monthly tracking
+            month_key = transaction.date.strftime('%Y-%m')
+            if month_key not in monthly_data:
+                monthly_data[month_key] = {'income': 0.0, 'expenses': 0.0}
             
-            percentage = (spent / goal.amount * 100) if goal.amount > 0 else 0
+            # Update totals based on transaction type
+            if transaction.type.lower() == 'income':
+                monthly_data[month_key]['income'] += amount
+            else:  # expense
+                monthly_data[month_key]['expenses'] += amount
+                
+                # Category tracking for expenses
+                category_name = transaction.category.name if transaction.category else 'Uncategorized'
+                category_totals[category_name] = category_totals.get(category_name, 0.0) + amount
 
-            budget_comparison.append({
-                'category': goal.category.name,
-                'budget': float(goal.amount),
-                'spent': float(spent),
-                'remaining': float(goal.amount - spent),
-                'percentage': round(percentage, 1)
-            })
-
-        # Calculate budget metrics
-        budget_usage = (total_spent / total_budget * 100) if total_budget > 0 else 0
-        budget_remaining = total_budget - total_spent
-
-        # Get monthly trends
-        monthly_trends = []
-        current_date = today
-        
-        for i in range(12):
-            month_start = datetime(current_date.year, current_date.month, 1)
-            last_day = calendar.monthrange(current_date.year, current_date.month)[1]
-            month_end = datetime(current_date.year, current_date.month, last_day, 23, 59, 59)
-            
-            month_transactions = Transaction.query.filter(
-                Transaction.user_id == current_user.id,
-                Transaction.date >= month_start,
-                Transaction.date <= month_end
-            ).all()
-
-            month_income = sum(t.amount for t in month_transactions if t.type == 'income')
-            month_expenses = sum(t.amount for t in month_transactions if t.type == 'expense')
-
-            monthly_trends.append({
-                'month': month_start.strftime('%B %Y'),
-                'income': float(month_income),
-                'expenses': float(month_expenses),
-                'net': float(month_income - month_expenses)
-            })
-
-            current_date = (month_start - timedelta(days=1))
-
-        monthly_trends.reverse()
-
-        # Generate colors for categories
-        category_colors = [f'hsl({(i * 360) / len(categories_data)}, 70%, 50%)'
-                         for i in range(len(categories_data))]
-
-        # Prepare chart data
+        # Prepare monthly chart data
+        sorted_months = sorted(monthly_data.keys())
         chart_data = {
-            'expenseLabels': list(categories_data.keys()),
-            'expenseData': list(categories_data.values()),
-            'trendLabels': [item['month'] for item in monthly_trends],
-            'incomeValues': [item['income'] for item in monthly_trends],
-            'expenseValues': [item['expenses'] for item in monthly_trends],
-            'categoryColors': category_colors
+            'monthly': {
+                'labels': [datetime.strptime(m, '%Y-%m').strftime('%b %Y') for m in sorted_months],
+                'income': [float(monthly_data[m]['income']) for m in sorted_months],
+                'expenses': [float(monthly_data[m]['expenses']) for m in sorted_months]
+            },
+            'expenses_by_category': {
+                'labels': list(category_totals.keys()),
+                'values': [float(val) for val in category_totals.values()]
+            }
         }
 
-        app.logger.debug("Rendering expense analysis template")
+        # Calculate totals
+        total_income = sum(chart_data['monthly']['income'])
+        total_expenses = sum(chart_data['monthly']['expenses'])
+        net_savings = total_income - total_expenses
+        savings_rate = round((net_savings / total_income * 100) if total_income > 0 else 0, 1)
+
+        # If no data, provide default values
+        if not chart_data['monthly']['labels']:
+            chart_data['monthly'] = {
+                'labels': [today.strftime('%b %Y')],
+                'income': [0.0],
+                'expenses': [0.0]
+            }
+
+        if not chart_data['expenses_by_category']['labels']:
+            chart_data['expenses_by_category'] = {
+                'labels': ['No Expenses'],
+                'values': [0.0]
+            }
+
         return render_template('expense_analysis.html',
-                             total_income=float(total_income),
-                             total_expenses=float(total_expenses),
-                             net_income=float(net_income),
-                             income_trend=round(income_trend, 1),
-                             expense_trend=round(expense_trend, 1),
-                             savings_rate=round(savings_rate, 1),
-                             budget_usage=round(budget_usage, 1),
-                             budget_remaining=float(budget_remaining),
-                             monthly_trends=monthly_trends,
-                             budget_comparison=budget_comparison,
-                             chart_data=chart_data)
+                             chart_data=chart_data,
+                             total_income=total_income,
+                             total_expenses=total_expenses,
+                             net_savings=net_savings,
+                             savings_rate=savings_rate)
 
     except Exception as e:
-        app.logger.error(f"Error in expense analysis: {str(e)}")
-        flash('An error occurred while analyzing expenses', 'error')
+        current_app.logger.error(f"Error in expense_analysis: {str(e)}")
+        import traceback
+        current_app.logger.error(traceback.format_exc())
+        flash('An error occurred while loading the expense analysis.', 'danger')
         return redirect(url_for('home'))
-
 
 @app.route('/api/expense_data')
 @login_required
@@ -1391,6 +1329,41 @@ def get_goal(goal_id):
     except Exception as e:
         current_app.logger.error(f"Error getting goal: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/get_chart_data')
+@login_required
+def get_chart_data():
+    time_range = request.args.get('range', 'current')
+    
+    # Get date range based on selected option
+    today = datetime.utcnow()
+    if time_range == 'current':
+        start_date = today.replace(day=1)
+    elif time_range == 'last':
+        start_date = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+    elif time_range == '3months':
+        start_date = (today - timedelta(days=90)).replace(day=1)
+    elif time_range == '6months':
+        start_date = (today - timedelta(days=180)).replace(day=1)
+    else:  # year
+        start_date = (today - timedelta(days=365)).replace(day=1)
+
+    # Get transactions for the period
+    transactions = Transaction.query.filter(
+        Transaction.user_id == current_user.id,
+        Transaction.date >= start_date,
+        Transaction.date <= today
+    ).all()
+
+    # Process data for charts
+    monthly_data = process_monthly_trends(transactions)
+    distribution_data = process_expense_distribution(transactions)
+
+    return jsonify({
+        'monthly_trends': monthly_data,
+        'expense_distribution': distribution_data
+    })
+
 
 @app.route('/update_profile', methods=['POST'])
 @login_required
