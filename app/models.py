@@ -22,7 +22,13 @@ class User(UserMixin, db.Model):
     categories = db.relationship('Category', back_populates='user', lazy=True)
     transactions = db.relationship('Transaction', back_populates='user', lazy=True)
     recurring_transactions = db.relationship('RecurringTransaction', back_populates='user', lazy=True)
-    budget_goals = db.relationship('BudgetGoal', back_populates='user', lazy=True)
+    budget_goals = db.relationship('BudgetGoal', back_populates='user', cascade='all, delete-orphan')
+
+    def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if not self.username and self.email:
+                # Generate username from email if not provided
+                self.username = self.email.split('@')[0]
 
 class Category(db.Model):
     __tablename__ = 'categories'
@@ -34,11 +40,11 @@ class Category(db.Model):
     budget_limit = db.Column(db.Float, default=0.0)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
-    # Define the relationship from this side
+    # Update the relationship definition
+    budget_goals = db.relationship('BudgetGoal', back_populates='category', lazy=True)
     user = db.relationship('User', back_populates='categories', lazy=True)
     transactions = db.relationship('Transaction', back_populates='category', lazy=True)
     recurring_transactions = db.relationship('RecurringTransaction', back_populates='category', lazy=True)
-    budget_goals = db.relationship('BudgetGoal', back_populates='category', lazy=True)
 
 class Transaction(db.Model):
     __tablename__ = 'transactions'
@@ -59,16 +65,30 @@ class BudgetGoal(db.Model):
     __tablename__ = 'budget_goals'
     
     id = db.Column(db.Integer, primary_key=True)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
-    period = db.Column(db.String(20), nullable=False)  # 'monthly', 'yearly', etc.
-    start_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    end_date = db.Column(db.DateTime)
-    
-    # Define relationships
-    category = db.relationship('Category', back_populates='budget_goals', lazy=True)
-    user = db.relationship('User', back_populates='budget_goals', lazy=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)  # Change to nullable=True
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(20), nullable=False)
+    target_amount = db.Column(db.Float, nullable=False)
+    current_amount = db.Column(db.Float, default=0.0)
+    target_date = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Update the relationship definitions
+    user = db.relationship('User', back_populates='budget_goals')
+    category = db.relationship('Category', back_populates='budget_goals')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'target_amount': self.target_amount,
+            'current_amount': self.current_amount,
+            'target_date': self.target_date.strftime('%Y-%m-%d'),
+            'progress': round((self.current_amount / self.target_amount) * 100) if self.target_amount > 0 else 0
+        }
+
 
 class RecurringTransaction(db.Model):
     __tablename__ = 'recurring_transactions'

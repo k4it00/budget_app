@@ -309,73 +309,6 @@ def update_transaction(transaction_id):
 
 logger = logging.getLogger(__name__)
 
-@app.route('/budget_goals', methods=['GET', 'POST'])
-@login_required
-def set_budget_goals():
-    try:
-        categories = Category.query.filter_by(user_id=current_user.id).all()
-        
-        # Get existing budget goals
-        budget_goals = BudgetGoal.query.filter_by(user_id=current_user.id).all()
-        
-        # Create a dictionary of category_id: goal for easy lookup
-        goals_dict = {goal.category_id: goal for goal in budget_goals}
-        
-        if request.method == 'POST':
-            # Process form submission
-            for category in categories:
-                amount = request.form.get(f'amount_{category.id}', type=float)
-                period = request.form.get(f'period_{category.id}')
-                
-                if amount is not None:
-                    # Update existing goal or create new one
-                    if category.id in goals_dict:
-                        goal = goals_dict[category.id]
-                        goal.amount = amount
-                        goal.period = period
-                    else:
-                        goal = BudgetGoal(
-                            user_id=current_user.id,
-                            category_id=category.id,
-                            amount=amount,
-                            period=period
-                        )
-                        db.session.add(goal)
-            
-            db.session.commit()
-            flash('Budget goals updated successfully!', 'success')
-            return redirect(url_for('set_budget_goals'))
-        
-        return render_template(
-            'budget_goals.html',
-            categories=categories,
-            goals=goals_dict,
-            title='Budget Goals'
-        )
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error in set_budget_goals: {str(e)}")
-        flash('An error occurred while processing budget goals.', 'error')
-        return redirect(url_for('home'))
-
-# Add these template filters if not already present
-@app.template_filter('format_currency')
-def format_currency(value):
-    if value is None:
-        return "$0.00"
-    return f"${value:,.2f}"
-
-@app.template_filter('format_date')
-def format_date(value):
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        try:
-            value = datetime.strptime(value, '%Y-%m-%d')
-        except ValueError:
-            return value
-    return value.strftime('%Y-%m-%d')
-
 @app.route('/manage-categories', methods=['GET', 'POST'])
 @login_required
 def manage_categories():
@@ -613,33 +546,6 @@ def delete_recurring_transaction(id):
         current_app.logger.error(f'Error deleting recurring transaction: {str(e)}')
         return jsonify({'error': 'Error deleting recurring transaction'}), 500
 
-@app.route('/budget_goals')
-@login_required
-def budget_goals():
-    try:
-        # Get expense categories
-        categories = Category.query.filter_by(
-            user_id=current_user.id,
-            type='expense'
-        ).order_by(Category.name).all()
-
-        # Get recurring transactions
-        recurring_transactions = RecurringTransaction.query.filter_by(
-            user_id=current_user.id,
-            is_active=True
-        ).order_by(RecurringTransaction.start_date).all()
-
-        return render_template('budget_goals.html',
-                             categories=categories,
-                             recurring_transactions=recurring_transactions,
-                             today=datetime.now(),
-                             timedelta=timedelta)
-
-    except Exception as e:
-        current_app.logger.error(f"Error in budget_goals: {str(e)}")
-        flash('Error loading budget goals', 'danger')
-        return redirect(url_for('home'))
-
 @app.route('/account_settings', methods=['GET', 'POST'])
 @login_required
 def account_settings():
@@ -677,30 +583,27 @@ def account_settings():
                             category_name = str(row['category']).strip()
                             transaction_type = str(row['type']).lower()
                             
-                            # Find existing category
                             category = Category.query.filter_by(
                                 name=category_name,
                                 user_id=current_user.id
                             ).first()
                             
-                            # Create new category if it doesn't exist
                             if not category:
                                 category = Category(
                                     name=category_name,
                                     type=transaction_type,
-                                    user_id=current_user.id,
-                                    description=f'Imported category - {category_name}'
+                                    user_id=current_user.id
                                 )
                                 db.session.add(category)
-                                db.session.flush()  # Flush to get the category ID
+                                db.session.flush()
                             
-                            # Create transaction with category ID (not name)
+                            # Create transaction
                             transaction = Transaction(
                                 date=transaction_date,
                                 amount=float(row['amount']),
                                 description=str(row['description']),
                                 type=transaction_type,
-                                category_id=category.id,  # Use category.id instead of category.name
+                                category_id=category.id,
                                 user_id=current_user.id
                             )
                             
@@ -737,7 +640,7 @@ def account_settings():
         current_app.logger.error(f"Error in account settings: {str(e)}")
         flash('An error occurred while loading settings', 'error')
         return redirect(url_for('home'))
-
+    
 @app.route('/export_transactions_csv')
 @login_required
 def export_transactions_csv():
@@ -1093,93 +996,379 @@ def get_transaction(transaction_id):
             'success': False,
             'message': str(e)
         }), 500
+@app.route('/set_budget_goals', methods=['GET', 'POST'])
+@login_required
+def set_budget_goals():
+    try:
+        if request.method == 'POST':
+            # Get form data
+            category_id = request.form.get('category')
+            amount = request.form.get('amount')
+            period = request.form.get('period')
+            recurring = request.form.get('recurring', 'false') == 'true'
 
+            # Validate inputs
+            if not all([category_id, amount, period]):
+                flash('All fields are required', 'error')
+                return redirect(url_for('set_budget_goals'))
+
+            try:
+                amount = float(amount)
+                if amount <= 0:
+                    raise ValueError
+            except ValueError:
+                flash('Amount must be a positive number', 'error')
+                return redirect(url_for('set_budget_goals'))
+
+            valid_periods = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly']
+            if period not in valid_periods:
+                flash('Invalid period specified', 'error')
+                return redirect(url_for('set_budget_goals'))
+
+            # Check if budget goal already exists for this category and period
+            existing_goal = BudgetGoal.query.filter_by(
+                category_id=category_id,
+                period=period,
+                user_id=current_user.id
+            ).first()
+
+            if existing_goal:
+                flash('A budget goal already exists for this category and period', 'error')
+                return redirect(url_for('set_budget_goals'))
+
+            # Create new budget goal
+            new_goal = BudgetGoal(
+                category_id=category_id,
+                amount=amount,
+                period=period,
+                recurring=recurring,
+                user_id=current_user.id
+            )
+
+            db.session.add(new_goal)
+            db.session.commit()
+            flash('Budget goal set successfully!', 'success')
+            return redirect(url_for('set_budget_goals'))
+
+        # GET request - show the form
+        categories = Category.query.filter_by(user_id=current_user.id).all()
+        current_app.logger.info(f"Found {len(categories)} categories for user {current_user.id}")
+
+        # Get all budget goals for the current user
+        goals = BudgetGoal.query.filter_by(user_id=current_user.id).all()
+        current_app.logger.info(f"Found {len(goals)} budget goals for user {current_user.id}")
+
+        # Get recurring transactions
+        recurring_transactions = RecurringTransaction.query.filter_by(user_id=current_user.id).all()
+        current_app.logger.info(f"Found {len(recurring_transactions)} recurring transactions for user {current_user.id}")
+
+        budget_goals = []
+        current_date = datetime.now()
+
+        for goal in goals:
+            try:
+                # Calculate spent amount based on period
+                query = db.session.query(func.sum(Transaction.amount)).\
+                    filter(
+                        Transaction.category_id == goal.category_id,
+                        Transaction.type == 'expense',
+                        Transaction.user_id == current_user.id
+                    )
+
+                # Adjust date filter based on period
+                if goal.period == 'daily':
+                    query = query.filter(
+                        func.date(Transaction.date) == current_date.date()
+                    )
+                elif goal.period == 'weekly':
+                    start_of_week = current_date - timedelta(days=current_date.weekday())
+                    query = query.filter(
+                        Transaction.date >= start_of_week,
+                        Transaction.date < start_of_week + timedelta(days=7)
+                    )
+                elif goal.period == 'monthly':
+                    query = query.filter(
+                        extract('month', Transaction.date) == current_date.month,
+                        extract('year', Transaction.date) == current_date.year
+                    )
+                elif goal.period == 'quarterly':
+                    current_quarter = (current_date.month - 1) // 3 + 1
+                    quarter_start = datetime(current_date.year, (current_quarter - 1) * 3 + 1, 1)
+                    quarter_end = quarter_start + relativedelta(months=3)
+                    query = query.filter(
+                        Transaction.date >= quarter_start,
+                        Transaction.date < quarter_end
+                    )
+                elif goal.period == 'yearly':
+                    query = query.filter(
+                        extract('year', Transaction.date) == current_date.year
+                    )
+
+                spent = query.scalar() or 0
+                percentage = (spent / goal.amount) * 100 if goal.amount > 0 else 0
+
+                category = db.session.get(Category, goal.category_id)
+                budget_goals.append({
+                    'id': goal.id,
+                    'category': category.name,
+                    'category_id': category.id,
+                    'amount': goal.amount,
+                    'spent': spent,
+                    'percentage': percentage,
+                    'period': goal.period
+                })
+
+            except Exception as e:
+                current_app.logger.error(f"Error processing budget goal {goal.id}: {str(e)}")
+                continue
+
+        return render_template('budget_goals.html',
+                             categories=categories,
+                             budget_goals=budget_goals,
+                             recurring_transactions=recurring_transactions)
+
+    except Exception as e:
+        current_app.logger.error(f"Error in set_budget_goals: {str(e)}", exc_info=True)
+        flash('An error occurred while loading the page', 'error')
+        return redirect(url_for('home'))   
     
-@app.route('/add_budget_goal', methods=['POST'])
-def add_budget_goal():
+@app.route('/budget_goals')
+@login_required
+def budget_goals():
+    try:
+        # Ensure user has default categories
+        ensure_user_has_categories(current_user.id)
+        
+        # Get user's goals
+        goals = BudgetGoal.query.filter_by(user_id=current_user.id).all()
+
+        # Get all transactions grouped by category name
+        transactions = db.session.query(
+            Category.name,
+            Transaction.type,
+            db.func.sum(Transaction.amount).label('total_amount')
+        ).join(
+            Category, Transaction.category_id == Category.id
+        ).filter(
+            Transaction.user_id == current_user.id
+        ).group_by(
+            Category.name,
+            Transaction.type
+        ).all()
+
+        # Create a dictionary of category totals
+        transaction_totals = {}
+        for t in transactions:
+            key = (t.name, t.type)  # Use tuple of name and type as key
+            if t.total_amount:
+                transaction_totals[key] = t.total_amount
+
+        # Update each goal's current amount and progress
+        for goal in goals:
+            # Look for transactions matching the goal name and type
+            current_amount = transaction_totals.get((goal.name, goal.type), 0)
+            goal.current_amount = current_amount
+            
+            # Calculate progress
+            if goal.target_amount > 0:
+                goal.progress = round((current_amount / goal.target_amount) * 100, 2)
+            else:
+                goal.progress = 0
+
+        return render_template('budget_goals.html', goals=goals)
+
+    except Exception as e:
+        current_app.logger.error(f"Error in budget_goals route: {str(e)}", exc_info=True)
+        flash('An error occurred while loading budget goals.', 'error')
+        return redirect(url_for('home'))
+
+@app.route('/add_goal', methods=['POST'])
+@login_required
+def add_goal():
     try:
         data = request.get_json()
         
-        # Validate input
-        if not all(key in data for key in ['category_id', 'amount', 'period']):
-            return jsonify({'error': 'Missing required fields'}), 400
-        
-        # Check if goal already exists
-        existing_goal = BudgetGoal.query.filter_by(
-            category_id=data['category_id'],
-            user_id=current_user.id 
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        # Get the first matching category based on type
+        goal_type = data['type'].capitalize()  # Convert 'income' to 'Income' or 'expense' to 'Expense'
+        matching_category = Category.query.filter_by(
+            user_id=current_user.id,
+            type=goal_type
         ).first()
-        
-        if existing_goal:
-            return jsonify({'error': 'Budget goal already exists for this category'}), 400
-        
-        # Create new goal
+
+        # If no categories exist, create them
+        if not matching_category:
+            ensure_user_has_categories(current_user.id)
+            matching_category = Category.query.filter_by(
+                user_id=current_user.id,
+                type=goal_type
+            ).first()
+
+        if not matching_category:
+            return jsonify({'success': False, 'error': 'No matching category found'}), 400
+
         new_goal = BudgetGoal(
-            category_id=data['category_id'],
-            amount=float(data['amount']),
-            period=data['period'],
-            user_id=current_user.id  # Add user_id when creating new goal
+            user_id=current_user.id,
+            name=data['name'],
+            type=data['type'],
+            target_amount=float(data['target_amount']),
+            current_amount=0.0,
+            category_id=matching_category.id,  # Use the matching category
+            target_date=datetime.strptime(data['target_date'], '%Y-%m-%d'),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
         
         db.session.add(new_goal)
         db.session.commit()
         
-        return jsonify({'message': 'Budget goal created successfully'}), 200
+        return jsonify({
+            'success': True,
+            'goal': {
+                'id': new_goal.id,
+                'name': new_goal.name,
+                'type': new_goal.type,
+                'target_amount': float(new_goal.target_amount),
+                'current_amount': float(new_goal.current_amount),
+                'target_date': new_goal.target_date.strftime('%Y-%m-%d')
+            }
+        })
+
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f'Error adding budget goal: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        current_app.logger.error(f"Error creating goal: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
 
-@app.route('/edit_budget_goal/<int:goal_id>', methods=['POST'])
-def edit_budget_goal(goal_id):
+@app.route('/update_goal', methods=['POST'])
+@login_required
+def update_goal():
     try:
-        goal = BudgetGoal.query.filter_by(
-            id=goal_id,
-            user_id=current_user.id
-        ).first_or_404()
+        form_data = request.form
+        goal_id = form_data.get('goal_id')
+        goal = BudgetGoal.query.filter_by(id=goal_id, user_id=current_user.id).first()
         
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
+        if not goal:
+            return jsonify({'success': False, 'error': 'Goal not found'}), 404
             
-        # Update goal
-        if 'amount' in data:
-            goal.amount = float(data['amount'])
-        if 'period' in data:
-            goal.period = data['period']
-            
+        goal.name = form_data.get('goal_name')
+        goal.type = form_data.get('goal_type')
+        goal.target_amount = float(form_data.get('target_amount'))
+        goal.target_date = datetime.strptime(form_data.get('target_date'), '%Y-%m-%d')
+
+        # Update current amount based on transactions
+        current_amount = db.session.query(
+            db.func.sum(Transaction.amount)
+        ).join(
+            Category, Transaction.category_id == Category.id
+        ).filter(
+            Transaction.user_id == current_user.id,
+            Category.name == goal.name,  # Use Category.name instead of Transaction.category_name
+            Transaction.type == goal.type
+        ).scalar() or 0
+
+        goal.current_amount = current_amount
+        goal.updated_at = datetime.utcnow()
+        
         db.session.commit()
+        
+        # Calculate progress
+        progress = round((current_amount / goal.target_amount) * 100, 2) if goal.target_amount > 0 else 0
         
         return jsonify({
-            'message': 'Budget goal updated successfully',
+            'success': True,
             'goal': {
                 'id': goal.id,
-                'amount': goal.amount,
-                'period': goal.period
+                'name': goal.name,
+                'type': goal.type,
+                'target_amount': goal.target_amount,
+                'current_amount': current_amount,
+                'target_date': goal.target_date.strftime('%Y-%m-%d'),
+                'progress': progress
             }
-        }), 200
+        })
         
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f'Error updating budget goal {goal_id}: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        current_app.logger.error(f"Error updating goal: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
 
-@app.route('/delete_budget_goal/<int:goal_id>', methods=['POST'])
-def delete_budget_goal(goal_id):
+@app.route('/edit_goal/<int:goal_id>', methods=['POST'])
+@login_required
+def edit_goal(goal_id):
     try:
-        # Add user check to ensure users can only delete their own goals
-        goal = BudgetGoal.query.filter_by(
-            id=goal_id,
-            user_id=current_user.id
-        ).first_or_404()
+        goal = BudgetGoal.query.filter_by(id=goal_id, user_id=current_user.id).first()
+        if not goal:
+            return jsonify({'error': 'Goal not found'}), 404
+
+        # Update goal data
+        goal.name = request.form.get('goal_name', goal.name)
+        goal.target_amount = float(request.form.get('target_amount', goal.target_amount))
+        goal.current_amount = float(request.form.get('current_amount', goal.current_amount))
+        goal.target_date = datetime.strptime(request.form.get('target_date'), '%Y-%m-%d')
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'goal': {
+                'id': goal.id,
+                'name': goal.name,
+                'target_amount': goal.target_amount,
+                'current_amount': goal.current_amount,
+                'target_date': goal.target_date.strftime('%Y-%m-%d'),
+                'progress': round((goal.current_amount / goal.target_amount) * 100)
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+@app.route('/delete_goal/<int:goal_id>', methods=['DELETE'])
+@login_required
+def delete_goal(goal_id):
+    try:
+        goal = BudgetGoal.query.filter_by(id=goal_id, user_id=current_user.id).first()
         
+        if not goal:
+            return jsonify({'success': False, 'error': 'Goal not found'}), 404
+            
         db.session.delete(goal)
         db.session.commit()
-        return jsonify({'message': 'Budget goal deleted successfully'}), 200
+        
+        return jsonify({'success': True})
+        
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f'Error deleting budget goal {goal_id}: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        current_app.logger.error(f"Error deleting goal: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@app.route('/get_goal/<int:goal_id>')
+@login_required
+def get_goal(goal_id):
+    try:
+        goal = BudgetGoal.query.filter_by(id=goal_id, user_id=current_user.id).first()
+        
+        if not goal:
+            return jsonify({'success': False, 'error': 'Goal not found'}), 404
+            
+        return jsonify({
+            'success': True,
+            'goal': {
+                'id': goal.id,
+                'name': goal.name,
+                'target_amount': goal.target_amount,
+                'current_amount': goal.current_amount,
+                'target_date': goal.target_date.strftime('%Y-%m-%d'),
+                'progress': round((goal.current_amount / goal.target_amount) * 100, 2) if goal.target_amount > 0 else 0
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting goal: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/update_profile', methods=['POST'])
 @login_required

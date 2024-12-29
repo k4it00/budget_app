@@ -303,8 +303,8 @@
                            href="{{ url_for('add_transaction') }}">Add Transaction</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'set_budget_goals' %}active{% endif %}" 
-                           href="{{ url_for('set_budget_goals') }}">Budget Goals</a>
+                        <a class="nav-link {% if request.endpoint == 'budget_goals' %}active{% endif %}" 
+                           href="{{ url_for('budget_goals') }}">Budget Goals</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'manage_categories' %}active{% endif %}" 
