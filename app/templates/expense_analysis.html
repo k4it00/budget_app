@@ -3,252 +3,203 @@
 {% block title %}Expense Analysis{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/expense_analysis.css') }}">
+<link href="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.css" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/expense_analysis.css') }}" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4">Expense Analysis</h2>
-    
-    <!-- Date Range Selector -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="GET" class="row g-3 align-items-end">
-                <div class="col-md-4">
-                    <label for="start_date" class="form-label">Start Date</label>
-                    <input type="date" class="form-control" id="start_date" name="start_date" 
-                           value="{{ start_date }}" required>
-                           
-                </div>
-                <div class="col-md-4">
-                    <label for="end_date" class="form-label">End Date</label>
-                    <input type="date" class="form-control" id="end_date" name="end_date" 
-                           value="{{ end_date }}" required>
-                </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary w-100">Update Analysis</button>
-                </div>
-            </form>
+<div class="container py-4">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2 class="mb-1">Expense Analysis</h2>
+            <p class="text-muted">Track and analyze your spending patterns</p>
+        </div>
+        <div class="col-md-4">
+            <div class="d-flex justify-content-md-end gap-2">
+                <select class="form-select w-auto" id="timeRange">
+                    <option value="current">Current Month</option>
+                    <option value="last">Last Month</option>
+                    <option value="3months">Last 3 Months</option>
+                    <option value="6months">Last 6 Months</option>
+                    <option value="year">Last Year</option>
+                </select>
+                <button class="btn btn-outline-primary" id="refreshData">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Summary Cards -->
-    <div class="row mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="card bg-success text-white h-100">
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card summary-card income-card">
                 <div class="card-body">
-                    <h5 class="card-title">Total Income</h5>
-                    <h3 class="card-text mb-0">{{ format_currency(total_income) }}</h3>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Total Income</h6>
+                            <h3 class="card-title mb-0">{{ "${:,.2f}".format(total_income) }}</h3>
+                        </div>
+                        <div class="icon-container">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                    </div>
+                    <div class="trend mt-2">
+                        <span class="badge {% if income_trend >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            <i class="fas fa-{% if income_trend >= 0 %}arrow-up{% else %}arrow-down{% endif %}"></i>
+                            {{ "%.1f"|format(income_trend|abs) }}%
+                        </span>
+                        <small class="text-muted">vs last period</small>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4 mb-3">
-            <div class="card bg-danger text-white h-100">
+
+        <div class="col-md-3">
+            <div class="card summary-card expense-card">
                 <div class="card-body">
-                    <h5 class="card-title">Total Expenses</h5>
-                    <h3 class="card-text mb-0">{{ format_currency(total_expenses) }}</h3>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Total Expenses</h6>
+                            <h3 class="card-title mb-0">{{ "${:,.2f}".format(total_expenses) }}</h3>
+                        </div>
+                        <div class="icon-container">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                    </div>
+                    <div class="trend mt-2">
+                        <span class="badge {% if expense_trend <= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            <i class="fas fa-{% if expense_trend <= 0 %}arrow-down{% else %}arrow-up{% endif %}"></i>
+                            {{ "%.1f"|format(expense_trend|abs) }}%
+                        </span>
+                        <small class="text-muted">vs last period</small>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4 mb-3">
-            <div class="card {{ 'bg-success' if net_income >= 0 else 'bg-danger' }} text-white h-100">
+
+        <div class="col-md-3">
+            <div class="card summary-card savings-card">
                 <div class="card-body">
-                    <h5 class="card-title">Net Income</h5>
-                    <h3 class="card-text mb-0">{{ format_currency(net_income) }}</h3>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Net Savings</h6>
+                            <h3 class="card-title mb-0">{{ "${:,.2f}".format(net_income) }}</h3>
+                        </div>
+                        <div class="icon-container">
+                            <i class="fas fa-piggy-bank"></i>
+                        </div>
+                    </div>
+                    <div class="trend mt-2">
+                        <span class="badge {% if savings_rate >= 20 %}bg-success{% elif savings_rate >= 10 %}bg-warning{% else %}bg-danger{% endif %}">
+                            {{ "%.1f"|format(savings_rate) }}%
+                        </span>
+                        <small class="text-muted">savings rate</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card summary-card budget-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Budget Status</h6>
+                            <h3 class="card-title mb-0">{{ "%.1f"|format(budget_usage) }}%</h3>
+                        </div>
+                        <div class="icon-container">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                    </div>
+                    <div class="trend mt-2">
+                        <span class="badge {% if budget_remaining > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ "${:,.2f}".format(budget_remaining) }}
+                        </span>
+                        <small class="text-muted">remaining</small>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Charts Row -->
-    <div class="row mb-4">
-        <!-- Income Chart -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Income by Category</h5>
-                    <span class="badge bg-success">{{ income_percentages|length }} Categories</span>
+    <!-- Charts Section -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Monthly Trends</h5>
                 </div>
                 <div class="card-body">
-                    {% if income_percentages %}
-                        <div class="chart-container mb-3">
-                            <canvas id="incomeChart"></canvas>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Category</th>
-                                        <th class="text-end">Amount</th>
-                                        <th class="text-end">Percentage</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in income_percentages %}
-                                    <tr>
-                                        <td>{{ item.category }}</td>
-                                        <td class="text-end">{{ format_currency(item.amount) }}</td>
-                                        <td class="text-end">{{ "%.1f"|format(item.percentage) }}%</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p class="text-muted text-center my-5">No income data available for the selected period</p>
-                    {% endif %}
+                    <div id="monthlyTrendsChart"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Expense Chart -->
-        <div class="col-md-6 mb-4">
-            <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Expenses by Category</h5>
-                    <span class="badge bg-danger">{{ expense_percentages|length }} Categories</span>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Expense Distribution</h5>
                 </div>
                 <div class="card-body">
-                    {% if expense_percentages %}
-                        <div class="chart-container mb-3">
-                            <canvas id="expenseChart"></canvas>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Category</th>
-                                        <th class="text-end">Amount</th>
-                                        <th class="text-end">Percentage</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in expense_percentages %}
-                                    <tr>
-                                        <td>{{ item.category }}</td>
-                                        <td class="text-end">{{ format_currency(item.amount) }}</td>
-                                        <td class="text-end">{{ "%.1f"|format(item.percentage) }}%</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p class="text-muted text-center my-5">No expense data available for the selected period</p>
-                    {% endif %}
+                    <div id="expenseDistributionChart"></div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Monthly Trends -->
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Monthly Trends</h5>
-            <span class="badge bg-primary">Last 12 Months</span>
-        </div>
-        <div class="card-body">
-            {% if monthly_trends %}
-                <div class="chart-container">
-                    <canvas id="trendChart"></canvas>
-                </div>
-                <div class="table-responsive mt-4">
-                    <table class="table table-sm table-hover">
-                        <thead>
-                            <tr>
-                                <th>Month</th>
-                                <th class="text-end">Income</th>
-                                <th class="text-end">Expenses</th>
-                                <th class="text-end">Net</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for trend in monthly_trends %}
-                            <tr>
-                                <td>{{ trend.month }}</td>
-                                <td class="text-end">{{ format_currency(trend.income) }}</td>
-                                <td class="text-end">{{ format_currency(trend.expenses) }}</td>
-                                <td class="text-end {{ 'text-success' if trend.net >= 0 else 'text-danger' }}">
-                                    {{ format_currency(trend.net) }}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p class="text-muted text-center my-5">No trend data available</p>
-            {% endif %}
         </div>
     </div>
 
     <!-- Budget Comparison -->
     <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Budget vs Actual</h5>
-            <span class="badge bg-warning text-dark">{{ budget_comparison|length }} Categories</span>
+        <div class="card-header">
+            <h5 class="card-title mb-0">Budget vs Actual</h5>
         </div>
         <div class="card-body">
-            {% if budget_comparison %}
-                <div class="chart-container mb-3">
-                    <canvas id="budgetChart"></canvas>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover">
-                        <thead>
-                            <tr>
-                                <th>Category</th>
-                                <th class="text-end">Budget</th>
-                                <th class="text-end">Spent</th>
-                                <th class="text-end">% Used</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in budget_comparison %}
-                            <tr>
-                                <td>{{ item.category }}</td>
-                                <td class="text-end">{{ format_currency(item.budget) }}</td>
-                                <td class="text-end">{{ format_currency(item.spent) }}</td>
-                                <td class="text-end {{ 'text-danger' if item.percentage > 100 else '' }}">
-                                    {{ "%.1f"|format(item.percentage) }}%
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p class="text-muted text-center my-5">No budget data available</p>
-            {% endif %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Budget</th>
+                            <th>Spent</th>
+                            <th>Remaining</th>
+                            <th>Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in budget_comparison %}
+                        <tr>
+                            <td>{{ item.category }}</td>
+                            <td>{{ "${:,.2f}".format(item.budget) }}</td>
+                            <td>{{ "${:,.2f}".format(item.spent) }}</td>
+                            <td>{{ "${:,.2f}".format(item.remaining) }}</td>
+                            <td style="width: 30%;">
+                                <div class="progress">
+                                    <div class="progress-bar {% if item.percentage > 100 %}bg-danger{% elif item.percentage > 80 %}bg-warning{% else %}bg-success{% endif %}"
+                                         role="progressbar"
+                                         style="width: {{ min(item.percentage, 100) }}%"
+                                         aria-valuenow="{{ item.percentage }}"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100">
+                                        {{ "%.1f"|format(item.percentage) }}%
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
-
-{% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    // Chart data
-    const chartData = {
-        incomeLabels: {{ chart_data.incomeLabels|tojson|safe }},
-        incomeData: {{ chart_data.incomeData|tojson|safe }},
-        income_amounts: {{ chart_data.income_amounts|tojson|safe }},
-        
-        expenseLabels: {{ chart_data.expenseLabels|tojson|safe }},
-        expenseData: {{ chart_data.expenseData|tojson|safe }},
-        expense_amounts: {{ chart_data.expense_amounts|tojson|safe }},
-        
-        trendLabels: {{ chart_data.trendLabels|tojson|safe }},
-        incomeValues: {{ chart_data.incomeValues|tojson|safe }},
-        expenseValues: {{ chart_data.expenseValues|tojson|safe }},
-        
-        budgetLabels: {{ chart_data.budgetLabels|tojson|safe }},
-        budgetValues: {{ chart_data.budgetValues|tojson|safe }},
-        budgetSpent: {{ chart_data.budgetSpent|tojson|safe }},
-        budgetLimits: {{ chart_data.budgetLimits|tojson|safe }}
-    };
-</script>
-<script src="{{ url_for('static', filename='js/expense_analysis.js') }}"></script>
-
 {% endblock %}
 
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.41.0/dist/apexcharts.min.js"></script>
+<script>
+    // Pass data from Flask to JavaScript
+    const chartData = {{ chart_data|tojson|safe }};
+</script>
+<script src="{{ url_for('static', filename='js/expense_analysis.js') }}"></script>
 {% endblock %}

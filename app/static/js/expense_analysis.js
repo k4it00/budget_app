@@ -1,267 +1,206 @@
-// Ensure chartData is defined
-if (typeof chartData === 'undefined') {
-    const chartData = {
-        incomeLabels: [],
-        incomeData: [],
-        income_amounts: [],
-        expenseLabels: [],
-        expenseData: [],
-        expense_amounts: [],
-        trendLabels: [],
-        incomeValues: [],
-        expenseValues: [],
-        budgetLabels: [],
-        budgetValues: [],
-        budgetSpent: [],
-        budgetLimits: []
-    };
-}
-
 document.addEventListener('DOMContentLoaded', function() {
-    // Utility function to format currency
-    const formatCurrency = (value) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD'
-        }).format(value);
-    };
+    initializeCharts();
+    setupEventListeners();
+    addHoverEffects();
+});
 
-    // Common chart options
-    const commonChartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: {
-                    boxWidth: 12,
-                    padding: 15,
-                    font: {
-                        size: window.innerWidth < 768 ? 10 : 11
-                    }
+function initializeCharts() {
+    // Monthly Trends Chart
+    const monthlyTrendsOptions = {
+        series: [{
+            name: 'Income',
+            data: chartData.incomeValues
+        }, {
+            name: 'Expenses',
+            data: chartData.expenseValues
+        }],
+        chart: {
+            type: 'area',
+            height: 350,
+            toolbar: {
+                show: false
+            },
+            animations: {
+                enabled: true,
+                easing: 'easeinout',
+                speed: 800
+            }
+        },
+        colors: ['#28a745', '#dc3545'],
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.7,
+                opacityTo: 0.3,
+                stops: [0, 90, 100]
+            }
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 2
+        },
+        xaxis: {
+            categories: chartData.trendLabels,
+            labels: {
+                rotate: -45,
+                rotateAlways: false
+            }
+        },
+        yaxis: {
+            labels: {
+                formatter: function(value) {
+                    return '$' + value.toLocaleString();
+                }
+            }
+        },
+        tooltip: {
+            shared: true,
+            y: {
+                formatter: function(value) {
+                    return '$' + value.toLocaleString();
                 }
             }
         }
     };
 
-    // Pie chart options
-    const pieChartOptions = {
-        ...commonChartOptions,
-        cutout: '40%',
-        radius: '90%'
+    // Expense Distribution Chart
+    const expenseDistributionOptions = {
+        series: chartData.expenseData,
+        chart: {
+            type: 'donut',
+            height: 350
+        },
+        labels: chartData.expenseLabels,
+        colors: chartData.categoryColors,
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '70%'
+                }
+            }
+        },
+        tooltip: {
+            y: {
+                formatter: function(value) {
+                    return '$' + value.toLocaleString();
+                }
+            }
+        },
+        legend: {
+            position: 'bottom'
+        },
+        responsive: [{
+            breakpoint: 480,
+            options: {
+                chart: {
+                    height: 300
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }]
     };
 
-    // Income Chart
-    const incomeChart = document.getElementById('incomeChart');
-    if (incomeChart && chartData.incomeLabels.length > 0) {
-        new Chart(incomeChart, {
-            type: 'doughnut',
-            data: {
-                labels: chartData.incomeLabels,
-                datasets: [{
-                    data: chartData.incomeData,
-                    backgroundColor: [
-                        '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107',
-                        '#FF9800', '#FF5722', '#795548', '#9E9E9E', '#607D8B'
-                    ],
-                    borderWidth: 1,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                ...pieChartOptions,
-                plugins: {
-                    ...pieChartOptions.plugins,
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const value = context.raw;
-                                const index = context.dataIndex;
-                                const amount = chartData.income_amounts ? chartData.income_amounts[index] : 0;
-                                return `${context.label}: ${value.toFixed(1)}% (${formatCurrency(amount)})`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
+    const monthlyTrendsChart = new ApexCharts(
+        document.querySelector("#monthlyTrendsChart"), 
+        monthlyTrendsOptions
+    );
 
-    // Expense Chart
-    const expenseChart = document.getElementById('expenseChart');
-    if (expenseChart && chartData.expenseLabels.length > 0) {
-        new Chart(expenseChart, {
-            type: 'doughnut',
-            data: {
-                labels: chartData.expenseLabels,
-                datasets: [{
-                    data: chartData.expenseData,
-                    backgroundColor: [
-                        '#f44336', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5',
-                        '#2196F3', '#03A9F4', '#00BCD4', '#009688', '#4CAF50'
-                    ],
-                    borderWidth: 1,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                ...pieChartOptions,
-                plugins: {
-                    ...pieChartOptions.plugins,
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const value = context.raw;
-                                const index = context.dataIndex;
-                                const amount = chartData.expense_amounts ? chartData.expense_amounts[index] : 0;
-                                return `${context.label}: ${value.toFixed(1)}% (${formatCurrency(amount)})`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
+    const expenseDistributionChart = new ApexCharts(
+        document.querySelector("#expenseDistributionChart"), 
+        expenseDistributionOptions
+    );
 
-    // Trend Chart
-    const trendChart = document.getElementById('trendChart');
-    if (trendChart && chartData.trendLabels.length > 0) {
-        new Chart(trendChart, {
-            type: 'line',
-            data: {
-                labels: chartData.trendLabels,
-                datasets: [{
-                    label: 'Income',
-                    data: chartData.incomeValues,
-                    borderColor: '#4CAF50',
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    fill: true,
-                    tension: 0.1,
-                    borderWidth: 2
-                }, {
-                    label: 'Expenses',
-                    data: chartData.expenseValues,
-                    borderColor: '#f44336',
-                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                    fill: true,
-                    tension: 0.1,
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                ...commonChartOptions,
-                scales: {
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 45,
-                            font: {
-                                size: window.innerWidth < 768 ? 8 : 10
-                            }
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return formatCurrency(value);
-                            },
-                            font: {
-                                size: window.innerWidth < 768 ? 8 : 10
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    ...commonChartOptions.plugins,
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
+    monthlyTrendsChart.render();
+    expenseDistributionChart.render();
+}
 
-    // Budget Comparison Chart
-    const budgetChart = document.getElementById('budgetChart');
-    if (budgetChart && chartData.budgetLabels.length > 0) {
-        new Chart(budgetChart, {
-            type: 'bar',
-            data: {
-                labels: chartData.budgetLabels,
-                datasets: [{
-                    label: 'Budget Used (%)',
-                    data: chartData.budgetValues,
-                    backgroundColor: chartData.budgetValues.map(value => 
-                        value > 100 ? '#f44336' : 
-                        value > 80 ? '#FFA726' : '#4CAF50'
-                    ),
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                ...commonChartOptions,
-                scales: {
-                    x: {
-                        grid: {
-                            display: false
-                        },
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 45,
-                            font: {
-                                size: window.innerWidth < 768 ? 8 : 10
-                            }
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: {
-                            callback: function(value) {
-                                return value + '%';
-                            },
-                            font: {
-                                size: window.innerWidth < 768 ? 8 : 10
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    ...commonChartOptions.plugins,
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const index = context.dataIndex;
-                                const spent = chartData.budgetSpent[index];
-                                const limit = chartData.budgetLimits[index];
-                                return [
-                                    `Spent: ${formatCurrency(spent)}`,
-                                    `Budget: ${formatCurrency(limit)}`,
-                                    `Used: ${context.raw.toFixed(1)}%`
-                                ];
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // Handle window resize
-    let resizeTimeout;
-    window.addEventListener('resize', function() {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(function() {
-            // Refresh charts here if needed
-            location.reload();
-        }, 250);
+function setupEventListeners() {
+    // Time range selector
+    document.getElementById('timeRange').addEventListener('change', function() {
+        updateData(this.value);
     });
-});
+
+    // Refresh button
+    document.getElementById('refreshData').addEventListener('click', function() {
+        const range = document.getElementById('timeRange').value;
+        updateData(range);
+    });
+}
+
+async function updateData(timeRange) {
+    try {
+        showLoading(true);
+        const response = await fetch(`/api/expense-data?range=${timeRange}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            updateCharts(data);
+            updateSummaryCards(data);
+            updateBudgetTable(data);
+        } else {
+            showToast('Error', data.error || 'Failed to update data', 'danger');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Error', 'An unexpected error occurred', 'danger');
+    } finally {
+        showLoading(false);
+    }
+}
+
+function showLoading(show) {
+    const elements = document.querySelectorAll('.card');
+    elements.forEach(element => {
+        if (show) {
+            element.classList.add('loading');
+        } else {
+            element.classList.remove('loading');
+        }
+    });
+
+    const refreshBtn = document.getElementById('refreshData');
+    if (show) {
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    } else {
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+    }
+}
+
+function showToast(title, message, type = 'success') {
+    const toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        const container = document.createElement('div');
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        document.body.appendChild(container);
+    }
+
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <strong>${title}</strong><br>${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toastEl);
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+
+    toastEl.addEventListener('hidden.bs.toast', () => {
+        toastEl.remove();
+    });
+}
+
+function addHoverEffects() {
+    // Add any additional hover effects if needed
+    // Most hover effects are handled in CSS
+}

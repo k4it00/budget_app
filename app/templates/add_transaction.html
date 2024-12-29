@@ -3,12 +3,14 @@
 {% block title %}Add Transaction{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card">
-                <div class="card-body">
-                    <h2 class="card-title text-center mb-4">Add Transaction</h2>
+            <div class="card shadow-sm hover-shadow">
+                <div class="card-body p-4">
+                    <h2 class="card-title text-center mb-4">
+                        <i class="fas fa-plus-circle text-primary me-2"></i>New Transaction
+                    </h2>
 
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
@@ -21,55 +23,79 @@
                         {% endif %}
                     {% endwith %}
 
-                    <form method="POST" action="{{ url_for('add_transaction') }}">
-                        <div class="mb-3">
-                            <label for="date" class="form-label">Date</label>
-                            <input type="date" class="form-control" id="date" name="date" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="type" class="form-label">Type</label>
-                            <select class="form-select" id="type" name="type" required>
-                                <option value="income">Income</option>
-                                <option value="expense">Expense</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="category" class="form-label">Category</label>
-                            <select class="form-select" id="category" name="category" required>
-                                <optgroup label="Income Categories" id="income-categories">
-                                    {% for category in income_categories %}
-                                        <option value="{{ category.id }}" data-type="income">{{ category.name }}</option>
-                                    {% endfor %}
-                                </optgroup>
-                                <optgroup label="Expense Categories" id="expense-categories">
-                                    {% for category in expense_categories %}
-                                        <option value="{{ category.id }}" data-type="expense">{{ category.name }}</option>
-                                    {% endfor %}
-                                </optgroup>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="amount" class="form-label">Amount</label>
-                            <div class="input-group">
-                                <span class="input-group-text">Ft</span>
-                                <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
+                    <form id="transactionForm" method="POST" action="{{ url_for('add_transaction') }}" class="needs-validation" novalidate>
+                        <!-- Transaction Type Selector -->
+                        <div class="transaction-type-selector mb-4">
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="type" id="income" value="income" checked>
+                                <label class="btn btn-outline-success" for="income">
+                                    <i class="fas fa-arrow-down me-2"></i>Income
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="type" id="expense" value="expense">
+                                <label class="btn btn-outline-danger" for="expense">
+                                    <i class="fas fa-arrow-up me-2"></i>Expense
+                                </label>
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        <div class="row g-3">
+                            <!-- Date Field -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input type="date" class="form-control" id="date" name="date" required>
+                                    <label for="date">Date</label>
+                                </div>
+                            </div>
+
+                            <!-- Amount Field -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
+                                    <label for="amount">Amount (Ft)</label>
+                                </div>
+                            </div>
+
+                           <!-- Update the Category Select field -->
+                           <div class="col-12">
+                               <div class="form-floating">
+                                   <select class="form-select" id="category_id" name="category_id" required>
+                                       <optgroup label="Income Categories" id="income-categories">
+                                           {% for category in income_categories %}
+                                               <option value="{{ category.id }}" data-type="income">
+                                                   {{ category.name }}
+                                               </option>
+                                           {% endfor %}
+                                       </optgroup>
+                                       
+                                       <optgroup label="Expense Categories" id="expense-categories">
+                                           {% for category in expense_categories %}
+                                               <option value="{{ category.id }}" data-type="expense">
+                                                   {{ category.name }}
+                                               </option>
+                                           {% endfor %}
+                                       </optgroup>
+                                   </select>
+                                   <label for="category_id">Category</label>
+                               </div>
+                           </div>
+                           
+                           
+                            <!-- Description Field -->
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    <textarea class="form-control" id="description" name="description" style="height: 100px"></textarea>
+                                    <label for="description">Description (Optional)</label>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-plus-circle"></i> Add Transaction
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-plus-circle me-2"></i>Add Transaction
                             </button>
                             <a href="{{ url_for('view_transactions') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-times"></i> Cancel
+                                <i class="fas fa-times me-2"></i>Cancel
                             </a>
                         </div>
                     </form>
@@ -79,7 +105,64 @@
     </div>
 </div>
 
-<!-- Updated JavaScript for category filtering and date setting -->
+<!-- Toast Container for Notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.hover-shadow {
+    transition: all 0.3s ease;
+}
+
+.hover-shadow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+}
+
+.form-floating > .form-control,
+.form-floating > .form-select {
+    height: calc(3.5rem + 2px);
+    line-height: 1.25;
+}
+
+.form-floating > textarea.form-control {
+    height: 100px;
+}
+
+.btn-check:checked + .btn-outline-success {
+    background-color: #198754;
+    color: white;
+}
+
+.btn-check:checked + .btn-outline-danger {
+    background-color: #dc3545;
+    color: white;
+}
+
+.transaction-type-selector .btn {
+    padding: 1rem;
+    font-size: 1.1rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
+}
+
+.toast {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.toast.show {
+    opacity: 1;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Set today's date as default
@@ -88,34 +171,153 @@ document.addEventListener('DOMContentLoaded', function() {
     const formattedDate = today.toISOString().split('T')[0];
     dateInput.value = formattedDate;
 
-    const typeSelect = document.getElementById('type');
-    const categorySelect = document.getElementById('category');
-    const incomeCategories = document.getElementById('income-categories');
-    const expenseCategories = document.getElementById('expense-categories');
+    const typeInputs = document.querySelectorAll('input[name="type"]');
+    const categorySelect = document.getElementById('category_id');
+    const form = document.getElementById('transactionForm');
 
+    // Function to filter categories based on transaction type
     function filterCategories() {
-        const selectedType = typeSelect.value.toLowerCase();
+        const selectedType = document.querySelector('input[name="type"]:checked').value;
+        const categorySelect = document.getElementById('category_id');
+        const incomeGroup = document.getElementById('income-categories');
+        const expenseGroup = document.getElementById('expense-categories');
         
         // Show/hide appropriate categories
         if (selectedType === 'income') {
-            incomeCategories.style.display = '';
-            expenseCategories.style.display = 'none';
-            // Select first income category if available
-            if (incomeCategories.querySelector('option')) {
-                categorySelect.value = incomeCategories.querySelector('option').value;
+            incomeGroup.style.display = '';
+            expenseGroup.style.display = 'none';
+            
+            // Enable income options and disable expense options
+            categorySelect.querySelectorAll('option').forEach(option => {
+                if (option.getAttribute('data-type') === 'income') {
+                    option.style.display = '';
+                    option.disabled = false;
+                } else {
+                    option.style.display = 'none';
+                    option.disabled = true;
+                }
+            });
+            
+            // Select first available income option
+            const firstIncomeOption = categorySelect.querySelector('option[data-type="income"]');
+            if (firstIncomeOption) {
+                categorySelect.value = firstIncomeOption.value;
             }
         } else {
-            incomeCategories.style.display = 'none';
-            expenseCategories.style.display = '';
-            // Select first expense category if available
-            if (expenseCategories.querySelector('option')) {
-                categorySelect.value = expenseCategories.querySelector('option').value;
+            incomeGroup.style.display = 'none';
+            expenseGroup.style.display = '';
+            
+            // Enable expense options and disable income options
+            categorySelect.querySelectorAll('option').forEach(option => {
+                if (option.getAttribute('data-type') === 'expense') {
+                    option.style.display = '';
+                    option.disabled = false;
+                } else {
+                    option.style.display = 'none';
+                    option.disabled = true;
+                }
+            });
+            
+            // Select first available expense option
+            const firstExpenseOption = categorySelect.querySelector('option[data-type="expense"]');
+            if (firstExpenseOption) {
+                categorySelect.value = firstExpenseOption.value;
             }
         }
     }
+    
+    // Call filterCategories on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        filterCategories();
+        
+        // Add event listener for type change
+        document.querySelectorAll('input[name="type"]').forEach(input => {
+            input.addEventListener('change', filterCategories);
+        });
+    });
+    
 
-    typeSelect.addEventListener('change', filterCategories);
-    filterCategories(); // Initial filter
+        // Select the first visible option
+        const visibleOptions = Array.from(options).filter(opt => !opt.disabled);
+        if (visibleOptions.length > 0) {
+            categorySelect.value = visibleOptions[0].value;
+        }
+    }
+
+    // Add event listeners for type change
+    typeInputs.forEach(input => {
+        input.addEventListener('change', filterCategories);
+    });
+
+    // Form validation and submission
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        
+        if (!form.checkValidity()) {
+            event.stopPropagation();
+            showToast('Please fill in all required fields', 'danger');
+            form.classList.add('was-validated');
+            return false;
+        }
+
+        // Get form data
+        const formData = new FormData(form);
+        
+        // Send the form data
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Transaction added successfully!', 'success');
+                setTimeout(() => {
+                    window.location.href = '{{ url_for("view_transactions") }}';
+                }, 1000);
+            } else {
+                throw new Error(data.message || 'Error adding transaction');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast(error.message || 'Error adding transaction', 'danger');
+        });
+    });
+
+    // Initial category filter
+    filterCategories();
 });
+
+function showToast(message, type) {
+    const toastContainer = document.querySelector('.toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast, {
+        delay: 3000
+    });
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
 </script>
 {% endblock %}

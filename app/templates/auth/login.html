@@ -2,14 +2,280 @@
 
 {% block title %}Welcome to Wifey's Budget Tracker{% endblock %}
 
+{% block styles %}
+<style>
+    body {
+        background: linear-gradient(135deg, #fff5f7 0%, #fff0f7 100%);
+        min-height: 100vh;
+    }
+
+    .welcome-content {
+        padding: 2rem;
+    }
+
+    .brand-name {
+        font-family: 'Dancing Script', cursive;
+        color: #ff69b4;
+        font-size: 4rem;
+        text-shadow: 3px 3px 6px rgba(255, 105, 180, 0.2);
+        position: relative;
+        display: inline-block;
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, #ff69b4, #ff1493);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .brand-name:after {
+        content: '✨';
+        position: absolute;
+        font-size: 2rem;
+        margin-left: 10px;
+        top: 0;
+        -webkit-text-fill-color: #ff69b4;
+    }
+
+    .lead {
+        font-family: 'Poppins', sans-serif;
+        font-size: 1.2rem;
+        color: #666;
+        line-height: 1.6;
+    }
+
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 2rem;
+        margin-top: 2rem;
+    }
+
+    .feature-item {
+        text-align: center;
+        padding: 2rem;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 10px 20px rgba(255, 105, 180, 0.1);
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 105, 180, 0.1);
+    }
+
+    .feature-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(255, 105, 180, 0.15);
+        border-color: rgba(255, 105, 180, 0.2);
+    }
+
+    .feature-item i {
+        font-size: 2.5rem;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(45deg, #ff69b4, #ff8dc7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .feature-item h5 {
+        color: #333;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .feature-item p {
+        color: #666;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .form-content {
+        animation: slideIn 0.5s ease-out;
+    }
+
+    .card {
+        border: none;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 15px 35px rgba(255, 105, 180, 0.15);
+    }
+
+    .card-body {
+        padding: 2.5rem !important;
+    }
+
+    .form-control {
+        border: 2px solid #ffe0e9;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #ff69b4;
+        box-shadow: 0 0 0 0.2rem rgba(255, 105, 180, 0.25);
+    }
+
+    .btn {
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #ff69b4, #ff8dc7);
+        border: none;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 105, 180, 0.3);
+    }
+    .btn-google {
+    background-color: #fff;
+    color: #757575;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    width: 100%;
+    font-weight: 500;
+    margin: 1rem 0;
+    transition: all 0.3s ease;
+}
+
+.btn-google i {
+    font-size: 1.2rem;
+    margin-right: 10px;
+    color: #4285f4;
+}
+
+.btn-google:hover {
+    background-color: #f8f9fa;
+    color: #757575;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+    
+
+    .divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        margin: 1rem 0;
+    }
+
+    .divider::before,
+    .divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #eee;
+    }
+
+    .divider span {
+        padding: 0 10px;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .password-toggle {
+        cursor: pointer;
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+        transition: color 0.3s ease;
+    }
+
+    .password-toggle:hover {
+        color: #ff69b4;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    /* Additional decorative elements */
+    .welcome-content::before {
+        content: '💝';
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 2rem;
+        opacity: 0.5;
+    }
+
+    .card::before {
+        content: '💖';
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        font-size: 1.5rem;
+        opacity: 0.5;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #fff5f7;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #ff8dc7;
+        border-radius: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #ff69b4;
+    }
+
+    /* Links styling */
+    .auth-links a {
+        color: #ff69b4;
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .auth-links a:hover {
+        color: #ff1493;
+        text-decoration: none;
+    }
+
+    /* Remember me checkbox styling */
+    .custom-control-input:checked ~ .custom-control-label::before {
+        background-color: #ff69b4;
+        border-color: #ff69b4;
+    }
+
+    .custom-control-label::before {
+        border-radius: 6px;
+    }
+</style>
+<!-- Add fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+{% endblock %}
+
 {% block content %}
 <div class="container">
-    <div class="row align-items-center min-vh-100 py-5 flip-container">
+    <div class="row align-items-center min-vh-100 py-5">
         <!-- Welcome Content -->
-        <div class="col-lg-7 pe-lg-5 mb-5 mb-lg-0 welcome-content">
-            <div class="content">
-                <h1 class="display-4 mb-4 text-primary fw-bold">Welcome to Wifey's Budget Tracker</h1>
-                <p class="lead mb-4">Take control of your finances with our powerful budgeting tools</p>
+        <div class="col-lg-7 pe-lg-5 mb-5 mb-lg-0">
+            <div class="welcome-content">
+                <h1 class="display-4 mb-4 brand-name">Welcome to Wifey's Budget Tracker</h1>
+                <p class="lead mb-4 text-muted">Take control of your finances with our beautiful and easy-to-use budgeting tools 💖</p>
                 
                 <div class="features-grid">
                     <div class="feature-item">
@@ -24,8 +290,8 @@
                     </div>
                     <div class="feature-item">
                         <i class="fas fa-clock fa-2x text-info mb-3"></i>
-                        <h5>Recurring Transactions</h5>
-                        <p class="text-muted">Automate your regular income and expenses</p>
+                        <h5>Recurring Bills</h5>
+                        <p class="text-muted">Never miss a payment with bill reminders</p>
                     </div>
                 </div>
             </div>
@@ -34,7 +300,7 @@
         <!-- Login Form -->
         <div class="col-lg-5 form-content">
             <div class="card shadow-lg">
-                <div class="card-body p-4">
+                <div class="card-body p-5">
                     <h2 class="text-center mb-4">Login</h2>
                     
                     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -42,39 +308,62 @@
                             {% for category, message in messages %}
                                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                                     {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
                                 </div>
                             {% endfor %}
                         {% endif %}
                     {% endwith %}
 
                     <form method="POST" action="{{ url_for('auth_login') }}" id="loginForm">
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" autocomplete="email" required>
+                        {{ form.hidden_tag() }}
+                        <div class="form-group">
+                            <label for="email">
+                                <i class="fas fa-envelope text-pink mr-2"></i>Email
+                            </label>
+                            <input type="email" class="form-control" id="email" name="email" required>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
-                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
-                                    <i class="fas fa-eye"></i>
-                                </button>
+                        <div class="form-group position-relative">
+                            <label for="password">
+                                <i class="fas fa-lock text-pink mr-2"></i>Password
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                            <span class="password-toggle" onclick="togglePassword()">
+                                <i class="fas fa-eye"></i>
+                            </span>
+                        </div>
+                        <div class="form-group">
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input" id="remember" name="remember">
+                                <label class="custom-control-label" for="remember">Remember me</label>
                             </div>
                         </div>
-                        
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                            <label class="form-check-label" for="remember">Remember me</label>
-                        </div>
-                        
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">Login</button>
-                            <a href="{{ url_for('auth_register') }}" class="btn btn-outline-secondary">Create new account</a>
-                            <a href="{{ url_for('google_login') }}" class="btn btn-outline-danger">Login with Google</a>
-                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fas fa-heart mr-2"></i>Login
+                        </button>
                     </form>
+                    <div class="divider">
+                        <span>or</span>
+                    </div>
+                    <!-- Google Login Button -->
+                    <a href="{{ url_for('google_login') }}" class="btn btn-google">
+                        <i class="fab fa-google"></i>
+                        Continue with Google
+                    </a>
+                    <div class="text-center mt-4 auth-links">
+                        <p class="mb-2">
+                            <a href="{{ url_for('auth_forgot_password') }}">
+                                <i class="fas fa-key mr-1"></i>Forgot your password?
+                            </a>
+                        </p>
+                        <p>
+                            Don't have an account? 
+                            <a href="{{ url_for('auth_register') }}">
+                                <i class="fas fa-user-plus mr-1"></i>Register here
+                            </a>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -83,5 +372,20 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/login.js') }}"></script>
+<script>
+function togglePassword() {
+    const passwordInput = document.getElementById('password');
+    const toggleIcon = document.querySelector('.password-toggle i');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+</script>
 {% endblock %}

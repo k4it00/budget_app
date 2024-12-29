@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Register - Budget Tracker{% endblock %}
+{% block title %}Register - Wifey's Budget Tracker{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -8,33 +8,33 @@
         <!-- Welcome Content -->
         <div class="col-lg-7 pe-lg-5 mb-5 mb-lg-0">
             <div class="welcome-content">
-                <h1 class="display-4 mb-4 text-primary fw-bold">Join Budget Tracker Today</h1>
-                <p class="lead mb-4">Start your journey to financial freedom with our comprehensive budgeting solution</p>
+                <h1 class="display-4 mb-4 brand-name">Join Wifey's Budget Tracker</h1>
+                <p class="lead mb-4 text-muted">Start your journey to financial freedom with our beautiful budgeting tools 💝</p>
                 
                 <div class="features-grid">
                     <div class="feature-item">
-                        <i class="fas fa-shield-alt fa-2x text-primary mb-3"></i>
-                        <h5>Secure & Private</h5>
-                        <p class="text-muted">Your financial data is encrypted and protected</p>
+                        <i class="fas fa-piggy-bank fa-2x mb-3"></i>
+                        <h5>Save Smart</h5>
+                        <p class="text-muted">Create personalized savings goals and track your progress</p>
                     </div>
                     <div class="feature-item">
-                        <i class="fas fa-bolt fa-2x text-success mb-3"></i>
-                        <h5>Quick Setup</h5>
-                        <p class="text-muted">Get started in minutes, not hours</p>
+                        <i class="fas fa-chart-pie fa-2x mb-3"></i>
+                        <h5>Budget Better</h5>
+                        <p class="text-muted">Visualize your spending patterns with beautiful charts</p>
                     </div>
                     <div class="feature-item">
-                        <i class="fas fa-hand-holding-usd fa-2x text-info mb-3"></i>
-                        <h5>Always Free</h5>
-                        <p class="text-muted">No hidden fees or subscription costs</p>
+                        <i class="fas fa-heart fa-2x mb-3"></i>
+                        <h5>Love Your Money</h5>
+                        <p class="text-muted">Build a healthy relationship with your finances</p>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Register Form -->
-        <div class="col-lg-5">
-            <div class="card shadow-lg mirror-effect">
-                <div class="card-body p-4">
+        <div class="col-lg-5 form-content">
+            <div class="card shadow-lg">
+                <div class="card-body p-5">
                     <h2 class="text-center mb-4">Create Account</h2>
                     
                     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -49,44 +49,210 @@
                     {% endwith %}
 
                     <form method="POST" action="{{ url_for('auth_register') }}" id="registerForm">
+                        {{ form.hidden_tag() }}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="first_name">
+                                    <i class="fas fa-user text-pink me-2"></i>First Name
+                                </label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="last_name">
+                                    <i class="fas fa-user text-pink me-2"></i>Last Name
+                                </label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" required>
+                            </div>
+                        </div>
+
                         <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
+                            <label for="email">
+                                <i class="fas fa-envelope text-pink me-2"></i>Email
+                            </label>
                             <input type="email" class="form-control" id="email" name="email" required>
                         </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="first_name" class="form-label">First Name</label>
-                                    <input type="text" class="form-control" id="first_name" name="first_name" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="last_name" class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" id="last_name" name="last_name" required>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
+
+                        <div class="mb-3 position-relative">
+                            <label for="password">
+                                <i class="fas fa-lock text-pink me-2"></i>Password
+                            </label>
                             <input type="password" class="form-control" id="password" name="password" required>
+                            <span class="password-toggle" onclick="togglePassword('password')">
+                                <i class="fas fa-eye"></i>
+                            </span>
                         </div>
-                        
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">Create Account</button>
-                            <a href="{{ url_for('auth_login') }}" class="btn btn-outline-secondary">Already have an account?</a>
-                            <a href="{{ url_for('google_login') }}" class="btn btn-outline-danger">Register with Google</a>
+
+                        <div class="mb-4 position-relative">
+                            <label for="confirm_password">
+                                <i class="fas fa-lock text-pink me-2"></i>Confirm Password
+                            </label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                            <span class="password-toggle" onclick="togglePassword('confirm_password')">
+                                <i class="fas fa-eye"></i>
+                            </span>
                         </div>
+
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-heart me-2"></i>Create Account
+                        </button>
                     </form>
+
+                    <div class="divider my-4">
+                        <span>or</span>
+                    </div>
+
+                    <a href="{{ url_for('google_login') }}" class="btn btn-google w-100">
+                        <i class="fab fa-google"></i>
+                        Sign up with Google
+                    </a>
+
+                    <div class="text-center mt-4 auth-links">
+                        <p>
+                            Already have an account? 
+                            <a href="{{ url_for('auth_login') }}">
+                                <i class="fas fa-sign-in-alt me-1"></i>Login here
+                            </a>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+/* Add these styles to match login page */
+.brand-name {
+    font-family: 'Dancing Script', cursive;
+    color: #ff69b4;
+    font-size: 4rem;
+    text-shadow: 3px 3px 6px rgba(255, 105, 180, 0.2);
+    position: relative;
+    display: inline-block;
+    margin-bottom: 1rem;
+    background: linear-gradient(45deg, #ff69b4, #ff1493);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.feature-item {
+    text-align: center;
+    padding: 2rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 10px 20px rgba(255, 105, 180, 0.1);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 105, 180, 0.1);
+}
+
+.feature-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(255, 105, 180, 0.15);
+    border-color: rgba(255, 105, 180, 0.2);
+}
+
+.feature-item i {
+    background: linear-gradient(45deg, #ff69b4, #ff8dc7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.form-control {
+    border: 2px solid #ffe0e9;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #ff69b4;
+    box-shadow: 0 0 0 0.2rem rgba(255, 105, 180, 0.25);
+}
+
+.password-toggle {
+    cursor: pointer;
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+    transition: color 0.3s ease;
+}
+
+.btn-google {
+    background-color: #fff;
+    color: #757575;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-google i {
+    font-size: 1.2rem;
+    margin-right: 10px;
+    color: #4285f4;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #eee;
+}
+
+.divider span {
+    padding: 0 10px;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.auth-links a {
+    color: #ff69b4;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.auth-links a:hover {
+    color: #ff1493;
+}
+
+.me-1 {
+    margin-right: 0.25rem;
+}
+
+.me-2 {
+    margin-right: 0.5rem;
+}
+</style>
+
 {% endblock %}
 
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/register.js') }}"></script>
+{% block scripts %}
+<script>
+function togglePassword(inputId) {
+    const passwordInput = document.getElementById(inputId);
+    const toggleIcon = passwordInput.nextElementSibling.querySelector('i');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
+    } else {
+        passwordInput.type = 'password';
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+    }
+}
+</script>
 {% endblock %}

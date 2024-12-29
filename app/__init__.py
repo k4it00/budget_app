@@ -8,11 +8,24 @@ from dateutil.relativedelta import relativedelta
 from authlib.integrations.flask_client import OAuth
 from flask_compress import Compress
 from flask_caching import Cache
+from flask import jsonify, request
+from werkzeug.exceptions import NotFound
 import secrets
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
+from urllib.parse import urlparse
+from flask_mail import Mail
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Initialize extensions
+db = SQLAlchemy()
+login_manager = LoginManager()
+mail = Mail()
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 app.config['CACHE_TYPE'] = 'redis'
@@ -22,6 +35,36 @@ Compress(app)
 secret_key = secrets.token_urlsafe(16)
 app.secret_key = secret_key 
 app.config.from_object(Config)
+
+# Get database credentials from environment variables
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_NAME = os.getenv('DB_NAME')
+DB_HOST = os.getenv('DB_HOST', 'localhost')
+DB_PORT = os.getenv('DB_PORT', '5432')
+
+# Construct the DATABASE_URL
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+# Keep your existing postgres:// to postgresql:// conversion logic
+if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+# Configure SQLAlchemy - MOVED BEFORE db.init_app(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 5,
+    'pool_recycle': 1800,
+    'pool_pre_ping': True
+}
+
+# Initialize extensions with app - MOVED AFTER setting SQLALCHEMY_DATABASE_URI
+db.init_app(app)
+migrate = Migrate(app, db)
+mail.init_app(app)
+login_manager.init_app(app)
+
 
 # Initialize OAuth
 oauth = OAuth(app)
@@ -35,58 +78,10 @@ google = oauth.register(
     }
 )
 
-# Initialize Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
+# Configure Flask-Login
 login_manager.login_view = 'auth_login'
 login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'info'
-
-# Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///budget.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
-
-
-# Import User model
-from app.models import User
-
-# User loader callback
-@login_manager.user_loader
-def load_user(user_id):
-    return db.session.get(User, int(user_id))
-
-def init_db():
-    with app.app_context():
-        db.create_all()
-        from app.models import Category  # Import Category here to avoid circular import
-        # Check if system categories exist specifically for user_id=1
-        system_categories = Category.query.filter_by(user_id=1).first()
-        if not system_categories:
-            # Create default categories for the system user
-            default_categories = [
-                Category(name='Salary', type='Income', user_id=1, description='System default - Salary'),
-                Category(name='Freelance', type='Income', user_id=1, description='System default - Freelance'),
-                Category(name='Investments', type='Income', user_id=1, description='System default - Investments'),
-                Category(name='Other Income', type='Income', user_id=1, description='System default - Other Income'),
-                Category(name='Groceries', type='Expense', user_id=1, description='System default - Groceries'),
-                Category(name='Rent', type='Expense', user_id=1, description='System default - Rent'),
-                Category(name='Utilities', type='Expense', user_id=1, description='System default - Utilities'),
-                Category(name='Transportation', type='Expense', user_id=1, description='System default - Transportation'),
-                Category(name='Entertainment', type='Expense', user_id=1, description='System default - Entertainment'),
-                Category(name='Healthcare', type='Expense', user_id=1, description='System default - Healthcare'),
-                Category(name='Shopping', type='Expense', user_id=1, description='System default - Shopping'),
-                Category(name='Restaurants', type='Expense', user_id=1, description='System default - Restaurants')
-            ]
-            try:
-                db.session.bulk_save_objects(default_categories)
-                db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                print(f"Error initializing default categories: {str(e)}")
-        else:
-            print("System categories already exist, skipping initialization.")
 
 # Import helpers before using it
 from app import helpers
@@ -94,6 +89,17 @@ from app import helpers
 # Register the utility processor
 app.context_processor(helpers.utility_processor)
 app.context_processor(helpers.override_url_for)
+@app.template_filter('format_currency')
+def format_currency(value):
+    return "{:,.0f} Ft".format(value)
+
+@app.template_filter('format_date')
+def format_date(value):
+    return value.strftime('%Y-%m-%d')
 
 # Import routes and models at the end to avoid circular imports
-from app import routes, models, errors
+from app import routes, models
+
+from app.helpers import init_db
+
+__all__ = ['app', 'db', 'init_db']

@@ -2,264 +2,134 @@
 
 {% block title %}Account Settings{% endblock %}
 
-{% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/account_settings.css') }}">
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/account_settings.js') }}"></script>
-{% endblock %}
-
 {% block content %}
-<div class="settings-container">
-    <!-- Header Section -->
-    <div class="settings-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-auto">
-                    <a href="{{ url_for('home') }}" class="btn btn-circle">
-                        <i class="fas fa-arrow-left"></i>
-                    </a>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="settings-container">
+                <div class="text-center mb-4">
+                    <h2 class="text-pink">Account Settings</h2>
                 </div>
-                <div class="col">
-                    <h2 class="mb-0">Account Settings</h2>
-                    <p class="text-muted mb-0">Manage your profile and preferences</p>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Main Content -->
-    <div class="container mt-4">
-        <div class="row">
-            <!-- Left Sidebar - Navigation -->
-            <div class="col-lg-3">
-                <div class="settings-nav card">
-                    <div class="list-group list-group-flush" id="settings-tabs" role="tablist">
-                        <a class="list-group-item active" data-bs-toggle="list" href="#profile" role="tab">
-                            <i class="fas fa-user-circle me-2"></i> Profile
-                        </a>
-                        <a class="list-group-item" data-bs-toggle="list" href="#security" role="tab">
-                            <i class="fas fa-shield-alt me-2"></i> Security
-                        </a>
-                        <a class="list-group-item" data-bs-toggle="list" href="#data" role="tab">
-                            <i class="fas fa-database me-2"></i> Data Management
-                        </a>
+                <div class="card shadow-lg rounded-3">
+                    <div class="card-header bg-white">
+                        <ul class="nav nav-tabs card-header-tabs" id="settingsTabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" id="profile-tab" data-bs-toggle="tab" href="#profile" role="tab">
+                                    <i class="fas fa-user-circle me-2"></i>Profile
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="security-tab" data-bs-toggle="tab" href="#security" role="tab">
+                                    <i class="fas fa-lock me-2"></i>Security
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="data-tab" data-bs-toggle="tab" href="#data" role="tab">
+                                    <i class="fas fa-database me-2"></i>Data Management
+                                </a>
+                            </li>
+                        </ul>
                     </div>
-                </div>
-            </div>
-
-            <!-- Right Content Area -->
-            <div class="col-lg-9">
-                <div class="tab-content">
-                    <!-- Profile Section -->
-                    <div class="tab-pane fade show active" id="profile">
-                        <div class="card settings-card">
-                            <div class="card-body">
-                                <div class="profile-header">
-                                    <div class="profile-avatar">
-                                        <div class="avatar-circle">
-                                            {{ user.first_name[0]|upper }}{{ user.last_name[0]|upper }}
-                                        </div>
-                                    </div>
-                                    <div class="profile-info">
-                                        <h3>{{ user.first_name|capitalize }} {{ user.last_name|capitalize }}</h3>
-                                        <p class="text-muted">{{ user.email }}</p>
-                                    </div>
-                                </div>
-                                <hr>
+                    <div class="card-body p-4">
+                        <div class="tab-content" id="settingsTabContent">
+                            <!-- Profile Tab -->
+                            <div class="tab-pane fade show active" id="profile" role="tabpanel">
                                 <form action="{{ url_for('update_profile') }}" method="POST">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="form-floating mb-3">
-                                                <input type="text" class="form-control" id="first_name" name="first_name" 
-                                                       value="{{ user.first_name }}" required>
-                                                <label for="first_name">First Name</label>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="form-floating mb-3">
-                                                <input type="text" class="form-control" id="last_name" name="last_name" 
-                                                       value="{{ user.last_name }}" required>
-                                                <label for="last_name">Last Name</label>
-                                            </div>
-                                        </div>
+                                    <div class="mb-3">
+                                        <label for="first_name" class="form-label">First Name</label>
+                                        <input type="text" class="form-control" id="first_name" name="first_name" 
+                                               value="{{ current_user.first_name }}" required>
                                     </div>
-                                    <div class="form-floating mb-3">
+                                    <div class="mb-3">
+                                        <label for="last_name" class="form-label">Last Name</label>
+                                        <input type="text" class="form-control" id="last_name" name="last_name" 
+                                               value="{{ current_user.last_name }}" required>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="email" class="form-label">Email</label>
                                         <input type="email" class="form-control" id="email" name="email" 
-                                               value="{{ user.email }}" required>
-                                        <label for="email">Email Address</label>
+                                               value="{{ current_user.email }}" required>
                                     </div>
-                                    <button type="submit" class="btn btn-primary btn-lg">
-                                        <i class="fas fa-save me-2"></i> Save Changes
+                                    <button type="submit" class="btn btn-primary w-100 mb-4">
+                                        <i class="fas fa-save me-2"></i>Update Profile
                                     </button>
                                 </form>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Security Section -->
-                    <div class="tab-pane fade" id="security">
-                        <div class="card settings-card">
-                            <div class="card-body">
-                                <h4 class="card-title mb-4">Change Password</h4>
-                                <form action="{{ url_for('update_password') }}" method="POST" id="passwordForm">
-                                    <div class="form-floating mb-3">
-                                        <input type="password" class="form-control" id="current_password" 
-                                               name="current_password" required>
-                                        <label for="current_password">Current Password</label>
-                                    </div>
-                                    <div class="form-floating mb-3">
-                                        <input type="password" class="form-control" id="new_password" 
-                                               name="new_password" required>
-                                        <label for="new_password">New Password</label>
-                                    </div>
-                                    <div class="form-floating mb-3">
-                                        <input type="password" class="form-control" id="confirm_password" 
-                                               name="confirm_password" required>
-                                        <label for="confirm_password">Confirm New Password</label>
-                                    </div>
-                                    <div class="password-strength mb-4">
-                                        <div class="progress">
-                                            <div class="progress-bar" role="progressbar"></div>
-                                        </div>
-                                        <div class="requirements mt-2">
-                                            <span class="requirement" id="length">
-                                                <i class="fas fa-circle"></i> 8+ characters
-                                            </span>
-                                            <span class="requirement" id="uppercase">
-                                                <i class="fas fa-circle"></i> Uppercase
-                                            </span>
-                                            <span class="requirement" id="lowercase">
-                                                <i class="fas fa-circle"></i> Lowercase
-                                            </span>
-                                            <span class="requirement" id="number">
-                                                <i class="fas fa-circle"></i> Number
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary btn-lg">
-                                        <i class="fas fa-key me-2"></i> Update Password
+                                <!-- Delete Profile Section -->
+                                <div class="pt-4 border-top">
+                                    <h5 class="text-danger mb-3">Delete Account</h5>
+                                    <p class="text-muted mb-3">
+                                        Warning: This action cannot be undone. All your data will be permanently deleted.
+                                    </p>
+                                    <button type="button" class="btn btn-outline-danger w-100" 
+                                            data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                                        <i class="fas fa-user-times me-2"></i>Delete Account
                                     </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Data Management Section -->
-                    <div class="tab-pane fade" id="data">
-                        <div class="row g-4">
-                            <!-- Data Stats -->
-                            <div class="col-12">
-                                <div class="card settings-card">
-                                    <div class="card-body">
-                                        <div class="row text-center">
-                                            <div class="col-md-6">
-                                                <h3 class="mb-0">{{ stats.total_transactions }}</h3>
-                                                <p class="text-muted">Total Transactions</p>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <h3 class="mb-0">{{ stats.total_categories }}</h3>
-                                                <p class="text-muted">Categories</p>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Export Data -->
-                            <div class="col-md-6">
-                                <div class="card settings-card h-100">
-                                    <div class="card-body">
-                                        <div class="feature-icon bg-primary bg-gradient">
-                                            <i class="fas fa-file-export"></i>
+                            <!-- Security Tab -->
+                            <div class="tab-pane fade" id="security" role="tabpanel">
+                                <div class="mb-4">
+                                    <h5 class="mb-4">Change Password</h5>
+                                    <form action="{{ url_for('update_password') }}" method="POST">
+                                        <div class="mb-3">
+                                            <label for="current_password" class="form-label">Current Password</label>
+                                            <input type="password" class="form-control" id="current_password" 
+                                                   name="current_password" required>
                                         </div>
-                                        <h4>Export Data</h4>
-                                        <p class="text-muted">Download your complete transaction history</p>
-                                        <a href="{{ url_for('export_transactions_csv') }}" class="btn btn-primary btn-lg w-100">
-                                            <i class="fas fa-download me-2"></i> Export to CSV
-                                        </a>
-                                    </div>
+                                        <div class="mb-3">
+                                            <label for="new_password" class="form-label">New Password</label>
+                                            <input type="password" class="form-control" id="new_password" 
+                                                   name="new_password" required>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                                            <input type="password" class="form-control" id="confirm_password" 
+                                                   name="confirm_password" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-key me-2"></i>Update Password
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
 
-                            <!-- Import Data -->
-                            <div class="col-md-6">
-                                <div class="card settings-card h-100">
-                                    <div class="card-body">
-                                        <div class="feature-icon bg-success bg-gradient">
-                                            <i class="fas fa-file-import"></i>
-                                        </div>
-                                        <h4>Import Data</h4>
-                                        <p class="text-muted">Import transactions from a CSV file</p>
-                                        <form action="{{ url_for('account_settings') }}" method="POST" enctype="multipart/form-data">
-                                            <div class="custom-file-upload mb-3">
-                                                <input type="file" class="form-control" name="file" accept=".csv" required>
+                            <!-- Data Management Tab -->
+                            <div class="tab-pane fade" id="data" role="tabpanel">
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Import Transactions</h5>
+                                    <form action="{{ url_for('account_settings') }}" method="POST" enctype="multipart/form-data">
+                                        <div class="mb-3">
+                                            <div class="custom-file">
+                                                <input type="file" class="form-control" id="file" name="file" accept=".csv">
                                             </div>
-                                            <button type="submit" class="btn btn-success btn-lg w-100">
-                                                <i class="fas fa-upload me-2"></i> Import Data
-                                            </button>
-                                        </form>
-                                        <div class="mt-2">
-                                            <small class="text-muted">
-                                                <i class="fas fa-info-circle"></i> 
-                                                Required columns: date, amount, type, category, description
+                                            <small class="form-text text-muted">
+                                                File must be CSV format with columns: date, amount, type, category, description
                                             </small>
                                         </div>
+                                        <button type="submit" class="btn btn-success w-100 mb-4">
+                                            <i class="fas fa-file-import me-2"></i>Import Data
+                                        </button>
+                                    </form>
+
+                                    <div class="mb-4 pt-4 border-top">
+                                        <h5 class="mb-3">Export Transactions</h5>
+                                        <a href="{{ url_for('export_transactions_csv') }}" class="btn btn-primary w-100">
+                                            <i class="fas fa-file-export me-2"></i>Export Data
+                                        </a>
+                                    </div>
+
+                                    <div class="pt-4 border-top">
+                                        <h5 class="mb-3">Reset Data</h5>
+                                        <p class="text-muted">Clear all your transactions while keeping your account.</p>
+                                        <button class="btn btn-danger w-100" data-bs-toggle="modal" data-bs-target="#resetDataModal">
+                                            <i class="fas fa-trash-alt me-2"></i>Reset Data
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Reset Data -->
-                            <div class="col-12">
-                                <div class="card settings-card border-danger">
-                                    <div class="card-body">
-                                        <div class="d-flex align-items-center">
-                                            <div class="feature-icon bg-danger bg-gradient me-3">
-                                                <i class="fas fa-exclamation-triangle"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="text-danger mb-1">Danger Zone</h4>
-                                                <p class="text-muted mb-0">Permanently delete all your data</p>
-                                            </div>
-                                        </div>
-                                        <hr>
-                                        <p class="text-danger">This action cannot be undone. Please be certain.</p>
-                                        <form action="{{ url_for('reset_data') }}" method="POST" onsubmit="return confirmReset()">
-                                            <button type="submit" class="btn btn-outline-danger btn-lg">
-                                                <i class="fas fa-trash-alt me-2"></i> Reset All Data
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Delete Account -->
-                            <div class="col-12">
-                                <div class="card settings-card border-danger">
-                                    <div class="card-body">
-                                        <div class="d-flex align-items-center">
-                                            <div class="feature-icon bg-danger bg-gradient me-3">
-                                                <i class="fas fa-user-slash"></i>
-                                            </div>
-                                            <div>
-                                                <h4 class="text-danger mb-1">Delete Account</h4>
-                                                <p class="text-muted mb-0">Permanently delete your account</p>
-                                            </div>
-                                        </div>
-                                        <hr>
-                                        <p class="text-danger">This action cannot be undone. Please be certain.</p>
-                                        <form action="{{ url_for('delete_user') }}" method="POST" onsubmit="return confirm('Are you sure you want to delete your account? This action cannot be undone.')">
-                                            <input type="hidden" name="user_id" value="{{ current_user.id }}">
-                                            <button type="submit" class="btn btn-outline-danger btn-lg">
-                                                <i class="fas fa-user-slash me-2"></i> Delete Account
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- End Delete Account -->
-
                         </div>
                     </div>
                 </div>
@@ -267,4 +137,320 @@
         </div>
     </div>
 </div>
+
+<!-- Delete Account Modal -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger" id="deleteAccountModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Account
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-4">Are you sure you want to delete your account? This action cannot be undone.</p>
+                <form action="{{ url_for('delete_user') }}" method="POST" id="deleteAccountForm">
+                    <input type="hidden" name="user_id" value="{{ current_user.id }}">
+                    <div class="mb-4">
+                        <label for="delete_confirmation" class="form-label">
+                            Type "delete" to confirm:
+                        </label>
+                        <input type="text" class="form-control" id="delete_confirmation" 
+                               placeholder="delete" required>
+                    </div>
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                        <label class="form-check-label" for="confirmDelete">
+                            I understand that this will permanently delete my account and all associated data
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="deleteAccountForm" class="btn btn-danger" id="deleteSubmitBtn" disabled>
+                    <i class="fas fa-trash-alt me-2"></i>Delete Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Data Modal -->
+<div class="modal fade" id="resetDataModal" tabindex="-1" aria-labelledby="resetDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-danger" id="resetDataModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Reset Data
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-4">Are you sure you want to reset all your data? This will delete all your transactions but keep your account.</p>
+                <form action="{{ url_for('reset_data') }}" method="POST" id="resetDataForm">
+                    <div class="mb-4">
+                        <label for="reset_confirmation" class="form-label">
+                            Type "reset" to confirm:
+                        </label>
+                        <input type="text" class="form-control" id="reset_confirmation" 
+                               placeholder="reset" required>
+                    </div>
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="confirmReset" required>
+                        <label class="form-check-label" for="confirmReset">
+                            I understand that this will permanently delete all my transaction data
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="resetDataForm" class="btn btn-danger" id="resetSubmitBtn" disabled>
+                    <i class="fas fa-trash-alt me-2"></i>Reset Data
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.nav-tabs .nav-link {
+    color: #666;
+    border: none;
+    padding: 1rem 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    color: var(--primary-color);
+    border: none;
+    background: var(--secondary-color);
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    border: none;
+    background: var(--secondary-color);
+    font-weight: 500;
+}
+
+.form-control {
+    border: 2px solid #ffe0e9;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(255, 105, 180, 0.25);
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.text-pink {
+    color: var(--primary-color);
+}
+
+.modal-content {
+    border: none;
+    border-radius: 15px;
+}
+
+.modal-header, .modal-footer {
+    padding: 1.5rem;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+    background-color: transparent;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(220, 53, 69, 0.2);
+}
+
+.form-check-input:checked {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.form-check-input:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* Animation for modal */
+.modal.fade .modal-dialog {
+    transition: transform 0.3s ease-out;
+}
+
+.modal.fade .modal-dialog {
+    transform: scale(0.95);
+}
+
+.modal.show .modal-dialog {
+    transform: scale(1);
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Maintain active tab after form submission
+    let activeTab = localStorage.getItem('activeSettingsTab');
+    if (activeTab) {
+        let tab = new bootstrap.Tab(document.querySelector(`#settingsTabs a[href="${activeTab}"]`));
+        tab.show();
+    }
+
+    document.querySelectorAll('#settingsTabs a').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(e) {
+            localStorage.setItem('activeSettingsTab', e.target.getAttribute('href'));
+        });
+    });
+
+    // Delete account form validation
+    document.getElementById('deleteAccountForm').addEventListener('submit', function(e) {
+        if (!document.getElementById('confirmDelete').checked) {
+            e.preventDefault();
+            alert('Please confirm that you understand the consequences of deleting your account.');
+        }
+    });
+
+    // Reset data form validation
+    document.getElementById('resetDataForm').addEventListener('submit', function(e) {
+        if (!document.getElementById('confirmReset').checked) {
+            e.preventDefault();
+            alert('Please confirm that you understand the consequences of resetting your data.');
+        }
+    });
+
+    // Clear modal fields when closed
+    $('#deleteAccountModal').on('hidden.bs.modal', function () {
+        document.getElementById('confirm_password_delete').value = '';
+        document.getElementById('confirmDelete').checked = false;
+    });
+
+    $('#resetDataModal').on('hidden.bs.modal', function () {
+        document.getElementById('confirm_password_reset').value = '';
+        document.getElementById('confirmReset').checked = false;
+    });
+
+    // Update file input label
+    document.querySelector('input[type="file"]').addEventListener('change', function(e) {
+        let fileName = e.target.files[0].name;
+        let small = e.target.nextElementSibling;
+        small.innerHTML = `Selected file: ${fileName}`;
+    });
+});
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteForm = document.getElementById('deleteAccountForm');
+        const deleteConfirmation = document.getElementById('delete_confirmation');
+        const confirmCheckbox = document.getElementById('confirmDelete');
+        const deleteSubmitBtn = document.getElementById('deleteSubmitBtn');
+    
+        function checkDeleteRequirements() {
+            const isConfirmationCorrect = deleteConfirmation.value.toLowerCase() === 'delete';
+            const isCheckboxChecked = confirmCheckbox.checked;
+            
+            deleteSubmitBtn.disabled = !(isConfirmationCorrect && isCheckboxChecked);
+        }
+    
+        // Add event listeners for all requirements
+        deleteConfirmation.addEventListener('input', checkDeleteRequirements);
+        confirmCheckbox.addEventListener('change', checkDeleteRequirements);
+    
+        // Form submission validation
+        deleteForm.addEventListener('submit', function(e) {
+            if (deleteConfirmation.value.toLowerCase() !== 'delete') {
+                e.preventDefault();
+                alert('Please type "delete" to confirm account deletion.');
+                return;
+            }
+    
+            if (!confirmCheckbox.checked) {
+                e.preventDefault();
+                alert('Please confirm that you understand the consequences of deleting your account.');
+                return;
+            }
+        });
+    
+        // Clear form when modal is closed
+        $('#deleteAccountModal').on('hidden.bs.modal', function () {
+            deleteForm.reset();
+            deleteSubmitBtn.disabled = true;
+        });
+    });
+    </script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Reset Data Form Validation
+        const resetForm = document.getElementById('resetDataForm');
+        const resetConfirmation = document.getElementById('reset_confirmation');
+        const confirmResetCheckbox = document.getElementById('confirmReset');
+        const resetSubmitBtn = document.getElementById('resetSubmitBtn');
+    
+        function checkResetRequirements() {
+            const isConfirmationCorrect = resetConfirmation.value.toLowerCase() === 'reset';
+            const isCheckboxChecked = confirmResetCheckbox.checked;
+            
+            resetSubmitBtn.disabled = !(isConfirmationCorrect && isCheckboxChecked);
+        }
+    
+        // Add event listeners for reset requirements
+        resetConfirmation.addEventListener('input', checkResetRequirements);
+        confirmResetCheckbox.addEventListener('change', checkResetRequirements);
+    
+        // Reset form submission validation
+        resetForm.addEventListener('submit', function(e) {
+            if (resetConfirmation.value.toLowerCase() !== 'reset') {
+                e.preventDefault();
+                alert('Please type "reset" to confirm data reset.');
+                return;
+            }
+    
+            if (!confirmResetCheckbox.checked) {
+                e.preventDefault();
+                alert('Please confirm that you understand the consequences of resetting your data.');
+                return;
+            }
+        });
+    
+        // Clear reset form when modal is closed
+        $('#resetDataModal').on('hidden.bs.modal', function () {
+            resetForm.reset();
+            resetSubmitBtn.disabled = true;
+        });
+         // Auto-dismiss after 3 seconds
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+});
+    </script>
 {% endblock %}

@@ -2,11 +2,156 @@ from flask import current_app, url_for
 from datetime import datetime, timedelta
 from flask_login import current_user 
 from sqlalchemy import func
-from app import db, app
+from app import app, db, login_manager
 from dateutil.relativedelta import relativedelta  # Ensure this import is present
-from app.models import Category, Transaction, BudgetGoal, RecurringTransaction
+from app.models import Category, Transaction, RecurringTransaction
 from app import cache
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
+from datetime import datetime
+import logging
+import pandas as pd
+from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.exc import SQLAlchemyError
 
+@login_manager.user_loader
+def load_user(user_id):
+    from app.models import User  # Import here to avoid circular import
+    return User.query.get(int(user_id))
+
+def init_db():
+    with app.app_context():
+        db.create_all()
+
+        # Import here to avoid circular imports
+        from app.models import User, Category
+
+        # Check if the system user exists
+        system_user = User.query.get(1)
+        if not system_user:
+            # Create the system user
+            system_user = User(
+                id=1,
+                email='system@example.com',
+                first_name='System',
+                last_name='User'
+            )
+            db.session.add(system_user)
+
+        # Add default categories if they don't exist
+        default_categories = [
+            {'name': 'Income', 'type': 'Income'},
+            {'name': 'Housing', 'type': 'Expense'},
+            {'name': 'Transportation', 'type': 'Expense'},
+            {'name': 'Food', 'type': 'Expense'},
+            {'name': 'Utilities', 'type': 'Expense'},
+            {'name': 'Insurance', 'type': 'Expense'},
+            {'name': 'Healthcare', 'type': 'Expense'},
+            {'name': 'Savings', 'type': 'Savings'},
+            {'name': 'Personal', 'type': 'Expense'},
+            {'name': 'Entertainment', 'type': 'Expense'},
+            {'name': 'Other', 'type': 'Expense'},
+        ]
+
+        for category_data in default_categories:
+            if not Category.query.filter_by(name=category_data['name']).first():
+                category = Category(
+                    name=category_data['name'],
+                    type=category_data['type'],  # Provide a valid type
+                    description=category_data.get('description', None),  # Optional description
+                    budget_limit=category_data.get('budget_limit', None),  # Optional budget limit
+                    user_id=system_user.id  # Assign to system user
+                )
+                db.session.add(category)
+
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error initializing database: {e}")
+            
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def set_user_password(user, password):
+    user.password_hash = generate_password_hash(password)
+
+def check_user_password(user, password):
+    if user.password_hash:
+        return check_password_hash(user.password_hash, password)
+    return False
+
+def get_or_create_category(name: str, type: str, user_id: int) -> Category:
+    
+    try:
+        # Look for existing category
+        category = Category.query.filter_by(
+            name=name,
+            user_id=user_id
+        ).first()
+        
+        # Create new category if it doesn't exist
+        if not category:
+            category = Category(
+                name=name,
+                type=type,
+                user_id=user_id,
+                description=f'Imported category - {name}'
+            )
+            db.session.add(category)
+            db.session.flush()  # Get the ID of the new category
+            
+        return category
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Error getting/creating category: {str(e)}")
+        raise
+def process_csv_import(file, user_id):
+    
+    try:
+        df = pd.read_csv(file, encoding='utf-8')
+        success_count = 0
+        error_count = 0
+        
+        for _, row in df.iterrows():
+            try:
+                transaction_date = datetime.strptime(str(row['date']), '%Y-%m-%d')
+                category_name = str(row['category']).strip()
+                transaction_type = str(row['type']).lower()
+                
+                # Get or create category
+                category = get_or_create_category(
+                    name=category_name,
+                    type=transaction_type,
+                    user_id=user_id
+                )
+                
+                # Create transaction
+                transaction = Transaction(
+                    date=transaction_date,
+                    amount=float(row['amount']),
+                    description=str(row['description']),
+                    type=transaction_type,
+                    category_id=category.id,
+                    user_id=user_id
+                )
+                
+                db.session.add(transaction)
+                success_count += 1
+                
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error processing row: {str(e)}")
+                continue
+                
+        db.session.commit()
+        return success_count, error_count
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error processing CSV: {str(e)}")
+        raise
 
 @cache.cached(timeout=60, key_prefix='all_users')
 def get_all_users():
@@ -41,125 +186,188 @@ def get_all_categories(user_id=None, category_type=None):
     return query.order_by(Category.type, Category.name).all()
 
 def get_budget_categories():
-    """Get budget categories with their spending progress for the current user"""
+    """
+    Get budget categories with their spending progress for the current user.
+    Returns a list of dictionaries containing category budget information.
+    """
     try:
         # Get the current month's date range
         today = datetime.now()
         start_of_month = datetime(today.year, today.month, 1)
         end_of_month = (start_of_month + timedelta(days=32)).replace(day=1) - timedelta(days=1)
 
+        # Log the date range for debugging
+        current_app.logger.debug(
+            f"Calculating budget progress for period: {start_of_month} to {end_of_month}"
+        )
+
         # Get all categories for the current user
         categories = Category.query.filter_by(user_id=current_user.id).all()
+        
+        if not categories:
+            current_app.logger.info(f"No categories found for user {current_user.id}")
+            return []
+
         budget_progress = []
 
         for category in categories:
-            # Get total spent in this category for the current month
-            total_spent = db.session.query(func.sum(Transaction.amount)).\
-                filter(Transaction.category_id == category.id,
-                       Transaction.type == 'Expense',
-                       Transaction.date >= start_of_month,
-                       Transaction.date <= end_of_month,
-                       Transaction.user_id == current_user.id).scalar() or 0
+            try:
+                # Get total spent in this category for the current month
+                total_spent = db.session.query(func.sum(Transaction.amount)).\
+                    filter(
+                        Transaction.category_id == category.id,  # Changed from category.name to category.id
+                        Transaction.type == 'expense',  # Changed to lowercase to match your schema
+                        Transaction.date >= start_of_month,
+                        Transaction.date <= end_of_month,
+                        Transaction.user_id == current_user.id
+                    ).scalar() or 0
 
-            # Calculate percentage of budget spent
-            if category.budget_limit:
-                percentage = (total_spent / category.budget_limit) * 100
-            else:
-                percentage = 0
+                # Calculate percentage of budget spent
+                budget_limit = category.budget_limit or 0
+                if budget_limit > 0:
+                    percentage = (total_spent / budget_limit) * 100
+                else:
+                    percentage = 0
 
-            budget_progress.append({
-                'name': category.name,
-                'spent': total_spent,
-                'budget': category.budget_limit or 0,
-                'percentage': round(percentage, 1)
-            })
+                # Create category progress dictionary
+                category_progress = {
+                    'id': category.id,
+                    'name': category.name,
+                    'spent': total_spent,
+                    'budget': budget_limit,
+                    'percentage': round(percentage, 1),
+                    'status': get_status(percentage),
+                    'remaining': budget_limit - total_spent if budget_limit > 0 else 0,
+                    'type': category.type
+                }
+
+                budget_progress.append(category_progress)
+
+                # Log high spending categories
+                if percentage >= 90:
+                    current_app.logger.warning(
+                        f"High spending alert: Category '{category.name}' at {percentage:.1f}% of budget"
+                    )
+
+            except Exception as category_error:
+                current_app.logger.error(
+                    f"Error processing category {category.name}: {str(category_error)}"
+                )
+                continue
+
+        # Sort categories by percentage spent (descending)
+        budget_progress.sort(key=lambda x: x['percentage'], reverse=True)
+
+        current_app.logger.info(
+            f"Successfully calculated budget progress for {len(budget_progress)} categories"
+        )
 
         return budget_progress
 
     except Exception as e:
-        print(f"Error in get_budget_categories: {str(e)}")
+        current_app.logger.error(f"Error in get_budget_categories: {str(e)}")
+        return []
+    
+def get_budget_goals(user_id: int):
+    """
+    Get budget goals for a user with proper error handling.
+    
+    Args:
+        user_id: The ID of the user
+    
+    Returns:
+        List of budget goals or empty list if error occurs
+    """
+    try:
+        # Get all categories with budget limits
+        categories = Category.query.filter(
+            Category.user_id == user_id,
+            Category.budget_limit > 0
+        ).all()
+        
+        budget_goals = []
+        
+        for category in categories:
+            try:
+                # Get current month's spending
+                today = datetime.now()
+                start_of_month = datetime(today.year, today.month, 1)
+                end_of_month = (start_of_month.replace(month=start_of_month.month + 1) 
+                              if start_of_month.month < 12 
+                              else start_of_month.replace(year=start_of_month.year + 1, month=1)) - timedelta(days=1)
+                
+                total_spent = db.session.query(func.sum(Transaction.amount)).\
+                    filter(
+                        Transaction.category_id == category.id,
+                        Transaction.type == 'expense',
+                        Transaction.date.between(start_of_month, end_of_month),
+                        Transaction.user_id == user_id
+                    ).scalar() or 0
+                
+                # Calculate percentage and status
+                percentage = (total_spent / category.budget_limit * 100) if category.budget_limit > 0 else 0
+                
+                budget_goal = {
+                    'category_id': category.id,
+                    'category_name': category.name,
+                    'budget_limit': category.budget_limit,
+                    'spent': total_spent,
+                    'remaining': max(category.budget_limit - total_spent, 0),
+                    'percentage': round(percentage, 1),
+                    'status': get_status(percentage)
+                }
+                
+                budget_goals.append(budget_goal)
+                
+            except Exception as e:
+                logger.error(f"Error processing category {category.name}: {str(e)}")
+                continue
+        
+        return budget_goals
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in get_budget_goals: {str(e)}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error in get_budget_goals: {str(e)}")
         return []
 
-def process_recurring_transactions():
-    with app.app_context():
-        try:
-            now = datetime.now()
-            recurring_transactions = RecurringTransaction.query.filter_by(is_active=True).all()
-            
-            for recurring in recurring_transactions:
-                try:
-                    # Skip if end date is set and passed
-                    if recurring.end_date and recurring.end_date < now:
-                        continue
-                        
-                    # Get the last processed date or use start date if never processed
-                    last_processed = recurring.last_processed or recurring.start_date
-                    next_date = None
-                    
-                    # Calculate the next date based on frequency
-                    if recurring.frequency == 'daily':
-                        next_date = last_processed + timedelta(days=1)
-                    elif recurring.frequency == 'weekly':
-                        next_date = last_processed + timedelta(weeks=1)
-                    elif recurring.frequency == 'monthly':
-                        next_date = last_processed + relativedelta(months=1)
-                    elif recurring.frequency == 'yearly':
-                        next_date = last_processed + relativedelta(years=1)
-                    
-                    # Process all pending transactions up to current date
-                    while next_date <= now:
-                        try:
-                            # Get the category ID based on the category name
-                            category = Category.query.filter_by(
-                                name=recurring.category,
-                                user_id=recurring.user_id
-                            ).first()
-                            
-                            if not category:
-                                current_app.logger.error(f"Category not found for recurring transaction: {recurring.id}")
-                                break
+def get_status(percentage: float) -> str:
+    """Get the status based on the progress percentage"""
+    if percentage >= 100:
+        return {
+            'class': 'danger',
+            'label': 'Over Budget',
+            'icon': 'fas fa-exclamation-circle'
+        }
+    elif percentage >= 80:
+        return {
+            'class': 'warning',
+            'label': 'Warning',
+            'icon': 'fas fa-exclamation-triangle'
+        }
+    else:
+        return {
+            'class': 'success',
+            'label': 'On Track',
+            'icon': 'fas fa-check-circle'
+        }
 
-                            # Create new transaction
-                            new_transaction = Transaction(
-                                date=next_date,
-                                type=recurring.type,
-                                category_id=category.id,
-                                amount=recurring.amount,
-                                description=f"[Recurring] {recurring.description}" if recurring.description else "[Recurring Transaction]",
-                                user_id=recurring.user_id
-                            )
-                            
-                            db.session.add(new_transaction)
-                            recurring.last_processed = next_date
-                            
-                            # Calculate next date for the loop
-                            if recurring.frequency == 'daily':
-                                next_date += timedelta(days=1)
-                            elif recurring.frequency == 'weekly':
-                                next_date += timedelta(weeks=1)
-                            elif recurring.frequency == 'monthly':
-                                next_date += relativedelta(months=1)
-                            elif recurring.frequency == 'yearly':
-                                next_date += relativedelta(years=1)
-                                
-                        except Exception as e:
-                            current_app.logger.error(f"Error processing recurring transaction {recurring.id}: {str(e)}")
-                            db.session.rollback()
-                            break
-                            
-                except Exception as e:
-                    current_app.logger.error(f"Error processing recurring transaction {recurring.id}: {str(e)}")
-                    continue
-            
-            try:
-                db.session.commit()
-                current_app.logger.info("Recurring transactions processed successfully")
-            except Exception as e:
-                current_app.logger.error(f"Error committing recurring transactions: {str(e)}")
-                db.session.rollback()
-                
-        except Exception as e:
-            current_app.logger.error(f"Error in process_recurring_transactions: {str(e)}")
+class BudgetGoal:
+    def to_dict(self):
+        """Convert the budget goal to a dictionary"""
+        progress = self.get_progress()
+        return {
+            'id': self.id,
+            'amount': self.amount,
+            'period': self.period,
+            'category_name': self.category.name,
+            'progress': progress['percentage'],
+            'spent': progress['spent'],
+            'remaining': progress['remaining'],
+            'status': progress['status'],
+            'formatted_amount': format_currency(self.amount)
+        }
 
 def process_pending_recurring_transactions():
     """Process any pending recurring transactions immediately"""
@@ -167,20 +375,85 @@ def process_pending_recurring_transactions():
         now = datetime.now()
         recurring_transactions = RecurringTransaction.query.filter_by(is_active=True).all()
         needs_processing = False
+        processed_count = 0
+
         for recurring in recurring_transactions:
-            if recurring.end_date and recurring.end_date < now:
-                recurring.is_active = False
-            last_processed = recurring.last_processed or recurring.start_date
-            if last_processed < now:
-                needs_processing = True
+            try:
+                # Check if transaction has ended
+                if recurring.end_date and recurring.end_date < now:
+                    recurring.is_active = False
+                    db.session.add(recurring)
+                    continue
+
+                last_processed = recurring.last_processed or recurring.start_date
+                next_date = None
+
+                # Calculate next processing date based on frequency
+                if recurring.frequency == 'daily':
+                    next_date = last_processed + timedelta(days=1)
+                elif recurring.frequency == 'weekly':
+                    next_date = last_processed + timedelta(weeks=1)
+                elif recurring.frequency == 'monthly':
+                    next_date = last_processed + relativedelta(months=1)
+                elif recurring.frequency == 'yearly':
+                    next_date = last_processed + relativedelta(years=1)
+
+                # Check if transaction needs processing
+                if next_date and next_date <= now:
+                    needs_processing = True
+                    
+                    # Process all pending occurrences up to now
+                    while next_date <= now:
+                        # Fetch the category ID
+                        category = Category.query.filter_by(name=recurring.category_name, user_id=recurring.user_id).first()
+                        if not category:
+                            current_app.logger.error(f"Category '{recurring.category_name}' not found for user {recurring.user_id}")
+                            break
+
+                        # Create new transaction
+                        new_transaction = Transaction(
+                            date=next_date,
+                            type=recurring.type,
+                            category_id=category.id,  # Use category.id instead of category.name
+                            amount=recurring.amount,
+                            description=f"[Recurring] {recurring.description}" if recurring.description else "[Recurring Transaction]",
+                            user_id=recurring.user_id
+                        )
+                        
+                        db.session.add(new_transaction)
+                        recurring.last_processed = next_date
+                        processed_count += 1
+                        
+                        # Calculate next date
+                        if recurring.frequency == 'daily':
+                            next_date += timedelta(days=1)
+                        elif recurring.frequency == 'weekly':
+                            next_date += timedelta(weeks=1)
+                        elif recurring.frequency == 'monthly':
+                            next_date += relativedelta(months=1)
+                        elif recurring.frequency == 'yearly':
+                            next_date += relativedelta(years=1)
+
+            except Exception as e:
+                current_app.logger.error(f"Error processing recurring transaction {recurring.id}: {str(e)}")
+                continue
+
+        # Commit changes if any transactions were processed
         if needs_processing:
-            process_recurring_transactions()
-            current_app.logger.info("Pending recurring transactions processed")
+            try:
+                db.session.commit()
+                current_app.logger.info(f"Successfully processed {processed_count} recurring transactions")
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Error committing recurring transactions: {str(e)}")
         else:
             current_app.logger.info("No pending recurring transactions to process")
+
+        return processed_count
+
     except Exception as e:
         current_app.logger.error(f"Error checking recurring transactions: {str(e)}")
-
+        return 0
 def format_currency(amount):
     if amount is None or not isinstance(amount, (int, float)):
         return "0 Ft"
@@ -201,6 +474,39 @@ def format_currency(amount):
         
     except (ValueError, TypeError):
         return "0 Ft"
+def ensure_user_has_categories(user_id):
+    """Check if user has categories and create them if they don't"""
+    existing_categories = Category.query.filter_by(user_id=user_id).first()
+    
+    if not existing_categories:
+        default_categories = [
+            {'name': 'Salary', 'type': 'Income'},
+            {'name': 'Freelance', 'type': 'Income'},
+            {'name': 'Investments', 'type': 'Income'},
+            {'name': 'Groceries', 'type': 'Expense'},
+            {'name': 'Rent', 'type': 'Expense'},
+            {'name': 'Utilities', 'type': 'Expense'},
+            {'name': 'Transportation', 'type': 'Expense'},
+            {'name': 'Entertainment', 'type': 'Expense'}
+        ]
+        
+        try:
+            for cat_data in default_categories:
+                category = Category(
+                    name=cat_data['name'],
+                    type=cat_data['type'],
+                    user_id=user_id,
+                    description=f"Default {cat_data['type'].lower()} category",
+                    budget_limit=0.0
+                )
+                db.session.add(category)
+            db.session.commit()
+            return True
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating default categories: {str(e)}")
+            return False
+    return True
 
 def utility_processor():
     return dict(
