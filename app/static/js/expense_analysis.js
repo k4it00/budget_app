@@ -1,206 +1,220 @@
 document.addEventListener('DOMContentLoaded', function() {
-    initializeCharts();
-    setupEventListeners();
-    addHoverEffects();
-});
+    // Chart Theme Configuration
+    const chartTheme = {
+        primary: '#0d6efd',
+        success: '#198754',
+        danger: '#dc3545',
+        warning: '#ffc107',
+        info: '#0dcaf0',
+        dark: '#212529',
+        light: '#f8f9fa',
+        grid: '#e9ecef'
+    };
 
-function initializeCharts() {
-    // Monthly Trends Chart
+    // Utility Functions
+    const formatCurrency = (value) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(value);
+    };
+
+    // Initialize Monthly Trends Chart
     const monthlyTrendsOptions = {
         series: [{
             name: 'Income',
-            data: chartData.incomeValues
+            data: chartData.monthly_income
         }, {
             name: 'Expenses',
-            data: chartData.expenseValues
+            data: chartData.monthly_expenses
         }],
         chart: {
-            type: 'area',
+            type: 'line',
             height: 350,
+            fontFamily: 'inherit',
             toolbar: {
-                show: false
+                show: true,
+                tools: {
+                    download: true,
+                    selection: true,
+                    zoom: true,
+                    zoomin: true,
+                    zoomout: true,
+                    pan: true,
+                    reset: true
+                }
             },
             animations: {
-                enabled: true,
-                easing: 'easeinout',
-                speed: 800
+                enabled: true
             }
         },
-        colors: ['#28a745', '#dc3545'],
-        fill: {
-            type: 'gradient',
-            gradient: {
-                shadeIntensity: 1,
-                opacityFrom: 0.7,
-                opacityTo: 0.3,
-                stops: [0, 90, 100]
-            }
-        },
+        colors: [chartTheme.success, chartTheme.danger],
         stroke: {
             curve: 'smooth',
             width: 2
         },
+        grid: {
+            borderColor: chartTheme.grid,
+            padding: {
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 10
+            }
+        },
+        markers: {
+            size: 4,
+            strokeWidth: 0,
+            hover: {
+                size: 6
+            }
+        },
         xaxis: {
-            categories: chartData.trendLabels,
+            categories: chartData.months,
             labels: {
                 rotate: -45,
-                rotateAlways: false
+                style: {
+                    fontSize: '12px'
+                }
+            },
+            axisBorder: {
+                show: false
             }
         },
         yaxis: {
             labels: {
                 formatter: function(value) {
-                    return '$' + value.toLocaleString();
+                    return formatCurrency(value);
                 }
             }
         },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'left',
+            offsetY: -10
+        },
         tooltip: {
             shared: true,
+            intersect: false,
             y: {
                 formatter: function(value) {
-                    return '$' + value.toLocaleString();
+                    return formatCurrency(value);
                 }
             }
         }
     };
 
-    // Expense Distribution Chart
+    // Initialize Expense Distribution Chart
     const expenseDistributionOptions = {
-        series: chartData.expenseData,
+        series: chartData.category_amounts,
         chart: {
             type: 'donut',
-            height: 350
+            height: 350,
+            fontFamily: 'inherit'
         },
-        labels: chartData.expenseLabels,
-        colors: chartData.categoryColors,
+        labels: chartData.categories,
+        colors: [
+            chartTheme.primary,
+            chartTheme.success,
+            chartTheme.danger,
+            chartTheme.warning,
+            chartTheme.info,
+            '#6f42c1',
+            '#fd7e14',
+            '#20c997'
+        ],
         plotOptions: {
             pie: {
                 donut: {
-                    size: '70%'
-                }
-            }
-        },
-        tooltip: {
-            y: {
-                formatter: function(value) {
-                    return '$' + value.toLocaleString();
+                    size: '70%',
+                    labels: {
+                        show: true,
+                        name: {
+                            show: true
+                        },
+                        value: {
+                            show: true,
+                            formatter: function(val) {
+                                return formatCurrency(val);
+                            }
+                        },
+                        total: {
+                            show: true,
+                            label: 'Total Expenses',
+                            formatter: function(w) {
+                                const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                return formatCurrency(total);
+                            }
+                        }
+                    }
                 }
             }
         },
         legend: {
-            position: 'bottom'
+            position: 'bottom',
+            offsetY: 0
         },
-        responsive: [{
-            breakpoint: 480,
-            options: {
-                chart: {
-                    height: 300
-                },
-                legend: {
-                    position: 'bottom'
+        tooltip: {
+            y: {
+                formatter: function(value) {
+                    return formatCurrency(value);
                 }
             }
-        }]
+        }
     };
 
+    // Render Charts
     const monthlyTrendsChart = new ApexCharts(
         document.querySelector("#monthlyTrendsChart"), 
         monthlyTrendsOptions
     );
+    monthlyTrendsChart.render();
 
     const expenseDistributionChart = new ApexCharts(
         document.querySelector("#expenseDistributionChart"), 
         expenseDistributionOptions
     );
-
-    monthlyTrendsChart.render();
     expenseDistributionChart.render();
-}
 
-function setupEventListeners() {
-    // Time range selector
-    document.getElementById('timeRange').addEventListener('change', function() {
-        updateData(this.value);
-    });
+    // Handle Time Range Changes
+    const timeRangeSelect = document.getElementById('timeRange');
+    const refreshButton = document.getElementById('refreshData');
 
-    // Refresh button
-    document.getElementById('refreshData').addEventListener('click', function() {
-        const range = document.getElementById('timeRange').value;
-        updateData(range);
-    });
-}
+    async function updateData() {
+        try {
+            refreshButton.querySelector('i').classList.add('refreshing');
+            const response = await fetch(`/api/expense-analysis?timeRange=${timeRangeSelect.value}`);
+            
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
 
-async function updateData(timeRange) {
-    try {
-        showLoading(true);
-        const response = await fetch(`/api/expense-data?range=${timeRange}`);
-        const data = await response.json();
-        
-        if (data.success) {
-            updateCharts(data);
-            updateSummaryCards(data);
-            updateBudgetTable(data);
-        } else {
-            showToast('Error', data.error || 'Failed to update data', 'danger');
+            const newData = await response.json();
+            
+            // Update charts with new data
+            monthlyTrendsChart.updateSeries([{
+                name: 'Income',
+                data: newData.monthly_income
+            }, {
+                name: 'Expenses',
+                data: newData.monthly_expenses
+            }]);
+
+            expenseDistributionChart.updateSeries(newData.category_amounts);
+            expenseDistributionChart.updateOptions({ labels: newData.categories });
+
+            // Update summary cards
+            // Add code here to update your summary cards if needed
+
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            // Show error notification to user
+            alert('Failed to update data. Please try again.');
+        } finally {
+            refreshButton.querySelector('i').classList.remove('refreshing');
         }
-    } catch (error) {
-        console.error('Error:', error);
-        showToast('Error', 'An unexpected error occurred', 'danger');
-    } finally {
-        showLoading(false);
-    }
-}
-
-function showLoading(show) {
-    const elements = document.querySelectorAll('.card');
-    elements.forEach(element => {
-        if (show) {
-            element.classList.add('loading');
-        } else {
-            element.classList.remove('loading');
-        }
-    });
-
-    const refreshBtn = document.getElementById('refreshData');
-    if (show) {
-        refreshBtn.disabled = true;
-        refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    } else {
-        refreshBtn.disabled = false;
-        refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-    }
-}
-
-function showToast(title, message, type = 'success') {
-    const toastContainer = document.querySelector('.toast-container');
-    if (!toastContainer) {
-        const container = document.createElement('div');
-        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-        document.body.appendChild(container);
     }
 
-    const toastEl = document.createElement('div');
-    toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
-    toastEl.setAttribute('role', 'alert');
-    toastEl.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                <strong>${title}</strong><br>${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
-    
-    toastContainer.appendChild(toastEl);
-    const toast = new bootstrap.Toast(toastEl);
-    toast.show();
-
-    toastEl.addEventListener('hidden.bs.toast', () => {
-        toastEl.remove();
-    });
-}
-
-function addHoverEffects() {
-    // Add any additional hover effects if needed
-    // Most hover effects are handled in CSS
-}
+    timeRangeSelect.addEventListener('change', updateData);
+    refreshButton.addEventListener('click', updateData);
+});

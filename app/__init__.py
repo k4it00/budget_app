@@ -36,15 +36,8 @@ secret_key = secrets.token_urlsafe(16)
 app.secret_key = secret_key 
 app.config.from_object(Config)
 
-# Get database credentials from environment variables
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-DB_NAME = os.getenv('DB_NAME')
-DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_PORT = os.getenv('DB_PORT', '5432')
-
-# Construct the DATABASE_URL
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# Configure the database URL
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 # Keep your existing postgres:// to postgresql:// conversion logic
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
@@ -65,13 +58,12 @@ migrate = Migrate(app, db)
 mail.init_app(app)
 login_manager.init_app(app)
 
-
 # Initialize OAuth
 oauth = OAuth(app)
 google = oauth.register(
     name='google',
-    client_id=app.config['GOOGLE_CLIENT_ID'],
-    client_secret=app.config['GOOGLE_CLIENT_SECRET'],
+    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={
         'scope': 'openid email profile'
