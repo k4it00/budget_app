@@ -125,21 +125,12 @@ def add_transaction():
             db.session.add(new_transaction)
             db.session.commit()
 
-            # Update user's balance
-            if type == "income":
-                current_user.balance += amount
-            else:
-                current_user.balance -= amount
-            
-            db.session.commit()
-
             flash("Transaction added successfully!", "success")
-            return redirect(url_for("view_transactions"))
+            return jsonify({'success': True}), 200
 
         except Exception as e:
-            db.session.rollback()
-            flash(f"Error adding transaction: {str(e)}", "error")
-            return redirect(url_for("add_transaction"))
+            app.logger.error(f"Error adding transaction: {e}")
+            return jsonify({'success': False, 'error': 'An error occurred'}), 500
 
     # GET request - show form
     # Get all categories for the current user
