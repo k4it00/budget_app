@@ -286,20 +286,25 @@ def update_transaction(transaction_id):
 
 logger = logging.getLogger(__name__)
 
-@app.route('/manage-categories', methods=['GET', 'POST'])
+@app.route('/manage_categories', methods=['GET', 'POST'])
 @login_required
 def manage_categories():
     try:
         if request.method == 'POST':
             action = request.form.get('action')
+            logger.info(f"Action received: {action}")
             
             if action == 'add':
                 name = request.form.get('name')
                 type = request.form.get('type')
                 description = request.form.get('description', '')
+                logger.info(f"Adding category with name: {name}, type: {type}, description: {description}")
                 
                 # Validate inputs
                 if not name or not type:
+                    logger.warning("Name and type are required")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'error': 'Name and type are required'}), 400
                     flash('Name and type are required', 'error')
                     return redirect(url_for('manage_categories'))
                 
@@ -311,6 +316,9 @@ def manage_categories():
                 ).first()
                 
                 if existing_category:
+                    logger.warning("A category with this name and type already exists")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'error': 'A category with this name and type already exists'}), 400
                     flash('A category with this name and type already exists', 'error')
                     return redirect(url_for('manage_categories'))
                 
@@ -323,11 +331,18 @@ def manage_categories():
                 )
                 db.session.add(new_category)
                 db.session.commit()
+                logger.info("Category added successfully")
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': True, 'message': 'Category added successfully!'}), 200
                 flash('Category added successfully!', 'success')
                 
             elif action == 'edit':
                 category_id = request.form.get('category_id')
+                logger.info(f"Editing category with ID: {category_id}")
                 if not category_id:
+                    logger.warning("Category ID is required")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'error': 'Category ID is required'}), 400
                     flash('Category ID is required', 'error')
                     return redirect(url_for('manage_categories'))
                 
@@ -335,6 +350,9 @@ def manage_categories():
                 
                 # Verify ownership
                 if category.user_id != current_user.id:
+                    logger.warning("Unauthorized access attempt")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
                     flash('Unauthorized access', 'error')
                     return redirect(url_for('manage_categories'))
                 
@@ -344,11 +362,18 @@ def manage_categories():
                 category.description = request.form.get('description', category.description)
                 
                 db.session.commit()
+                logger.info("Category updated successfully")
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': True, 'message': 'Category updated successfully!'}), 200
                 flash('Category updated successfully!', 'success')
                 
             elif action == 'delete':
                 category_id = request.form.get('category_id')
+                logger.info(f"Deleting category with ID: {category_id}")
                 if not category_id:
+                    logger.warning("Category ID is required")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'error': 'Category ID is required'}), 400
                     flash('Category ID is required', 'error')
                     return redirect(url_for('manage_categories'))
                 
@@ -356,30 +381,41 @@ def manage_categories():
                 
                 # Verify ownership
                 if category.user_id != current_user.id:
+                    logger.warning("Unauthorized access attempt")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'error': 'Unauthorized access'}), 403
                     flash('Unauthorized access', 'error')
                     return redirect(url_for('manage_categories'))
                 
                 # Check if category has associated transactions
                 if category.transactions:
+                    logger.warning("Cannot delete category with associated transactions")
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'error': 'Cannot delete category with associated transactions'}), 400
                     flash('Cannot delete category with associated transactions', 'error')
                     return redirect(url_for('manage_categories'))
                 
                 db.session.delete(category)
                 db.session.commit()
+                logger.info("Category deleted successfully")
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'success': True, 'message': 'Category deleted successfully!'}), 200
                 flash('Category deleted successfully!', 'success')
             
             return redirect(url_for('manage_categories'))
         
         # GET request - display categories
+        logger.info("Fetching categories for user")
         categories = Category.query.filter_by(user_id=current_user.id).order_by(Category.type, Category.name).all()
         return render_template('manage_categories.html', categories=categories)
         
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error in manage_categories: {str(e)}")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'error': 'An error occurred while managing categories'}), 500
         flash('An error occurred while managing categories', 'error')
         return redirect(url_for('home'))
-
 @app.route('/add_recurring', methods=['POST'])
 @login_required
 def add_recurring():
@@ -1589,6 +1625,33 @@ This link will expire in 1 hour.
         
     return render_template('auth/forgot_password.html')
 
+@app.route('/auth/reset_password', methods=['POST'])
+def auth_reset_password():
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not email or not password:
+            return jsonify({'success': False, 'error': 'Email and password are required'}), 400
+            
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+            
+        user.set_password(password)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Password updated successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error resetting password: {str(e)}")
+        return jsonify({'success': False, 'error': 'Error resetting password'}), 500
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
 def auth_reset_password(token):
     user = User.query.filter_by(reset_token=token).first()

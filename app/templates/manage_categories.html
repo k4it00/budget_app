@@ -250,158 +250,9 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Add event listener for restore defaults button
-    const restoreDefaultsBtn = document.getElementById('restoreDefaultsBtn');
-    if (restoreDefaultsBtn) {
-        restoreDefaultsBtn.addEventListener('click', async function() {
-            if (!confirm('Are you sure you want to restore default categories? This won\'t delete your existing categories.')) {
-                return;
-            }
-
-            try {
-                const response = await fetch("{{ url_for('restore_default_categories') }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showFlash('Default categories restored successfully!', 'success');
-                    location.reload();
-                } else {
-                    showFlash(result.error || 'Error restoring default categories', 'danger');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showFlash('Error restoring default categories', 'danger');
-            }
-        });
-    }
-
-    // Add Category Form Handler
-    const addCategoryForm = document.getElementById('addCategoryForm');
-    if (addCategoryForm) {
-        addCategoryForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            const data = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch("{{ url_for('manage_categories') }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    location.reload();
-                } else {
-                    showFlash(result.error || 'Error adding category', 'danger');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showFlash('Error adding category', 'danger');
-            }
-        });
-    }
-
-    // Edit Category Form Handler
-    const editCategoryForm = document.getElementById('editCategoryForm');
-    if (editCategoryForm) {
-        editCategoryForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            const data = Object.fromEntries(formData.entries());
-
-            try {
-                const response = await fetch("{{ url_for('manage_categories') }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    location.reload();
-                } else {
-                    showFlash(result.error || 'Error updating category', 'danger');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showFlash('Error updating category', 'danger');
-            }
-        });
-    }
-
-    // Edit Category Button Handlers
-    document.querySelectorAll('.edit-category').forEach(button => {
-        button.addEventListener('click', function() {
-            const categoryId = this.dataset.id;
-            const categoryName = this.dataset.name;
-            const categoryType = this.dataset.type;
-            const categoryDescription = this.dataset.description;
-
-            document.getElementById('edit-category-id').value = categoryId;
-            document.getElementById('edit-name').value = categoryName;
-            document.getElementById('edit-description').value = categoryDescription;
-
-            if (categoryType === 'income') {
-                document.getElementById('editTypeIncome').checked = true;
-            } else {
-                document.getElementById('editTypeExpense').checked = true;
-            }
-        });
-    });
-
-    // Delete Category Button Handlers
-    document.querySelectorAll('.delete-category').forEach(button => {
-        button.addEventListener('click', async function() {
-            const categoryId = this.dataset.id;
-            const categoryName = this.dataset.name;
-
-            if (!confirm(`Are you sure you want to delete the category "${categoryName}"?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch("{{ url_for('manage_categories') }}", {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        action: 'delete',
-                        category_id: categoryId
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    location.reload();
-                } else {
-                    showFlash(result.error || 'Error deleting category', 'danger');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showFlash('Error deleting category', 'danger');
-            }
-        });
-    });
-});
-
-// Flash Message Helper Function
+    // Flash Message Helper Function
 function showFlash(message, type) {
+    console.log('Showing flash message:', { message, type });
     const toastContainer = document.querySelector('.toast-container');
     const toastHtml = `
         <div class="toast" role="alert" aria-live="assertive" aria-atomic="true">
@@ -419,5 +270,106 @@ function showFlash(message, type) {
     const toast = new bootstrap.Toast(toastContainer.lastElementChild);
     toast.show();
 }
+
+    // Restore Defaults Button Handler
+    const restoreDefaultsBtn = document.getElementById('restoreDefaultsBtn');
+    if (restoreDefaultsBtn) {
+        restoreDefaultsBtn.addEventListener('click', async function() {
+            console.log('Restore Defaults button clicked');
+            if (!confirm('Are you sure you want to restore default categories?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch("{{ url_for('restore_default_categories') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const result = await response.json();
+                console.log('Restore Defaults response:', result);
+
+                if (result.success) {
+                    showFlash(result.message || 'Default categories restored successfully!', 'success');
+                    location.reload();
+                } else {
+                    showFlash(result.error || 'Error restoring default categories', 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showFlash('Error restoring default categories', 'danger');
+            }
+        });
+    }
+    // Edit Category Button Handler
+    document.querySelectorAll('.edit-category').forEach(button => {
+        button.addEventListener('click', function() {
+            console.log('Edit Category button clicked');
+            const categoryId = this.dataset.id;
+            const categoryName = this.dataset.name;
+            const categoryType = this.dataset.type;
+            const categoryDescription = this.dataset.description;
+            console.log('Edit Category data:', { categoryId, categoryName, categoryType, categoryDescription });
+
+            document.getElementById('edit-category-id').value = categoryId;
+            document.getElementById('edit-name').value = categoryName;
+            document.getElementById('edit-description').value = categoryDescription || '';
+
+            if (categoryType === 'income') {
+                document.getElementById('editTypeIncome').checked = true;
+            } else {
+                document.getElementById('editTypeExpense').checked = true;
+            }
+        });
+    });
+
+    // Delete Category Button Handler
+    document.querySelectorAll('.delete-category').forEach(button => {
+        button.addEventListener('click', async function() {
+            console.log('Delete Category button clicked');
+            const categoryId = this.dataset.id;
+            const categoryName = this.dataset.name;
+            console.log('Delete Category data:', { categoryId, categoryName });
+
+            if (!confirm(`Are you sure you want to delete the category "${categoryName}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch("{{ url_for('manage_categories') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: new URLSearchParams({
+                        action: 'delete',
+                        category_id: categoryId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Delete Category response:', result);
+
+                if (result.success) {
+                    showFlash('Category deleted successfully!', 'success');
+                    location.reload();
+                } else {
+                    showFlash(result.error || 'Error deleting category', 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showFlash('Error deleting category', 'danger');
+            }
+        });
+    });
+});
 </script>
 {% endblock %}
