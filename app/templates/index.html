@@ -4,57 +4,73 @@
 
 {% block content %}
 <div class="container mt-4">
+    <!-- Welcome Section with Animation -->
     <div class="row mb-4">
         <div class="col">
-            <h2 class="welcome-header">Hello {{ current_user.first_name|capitalize }}!</h2>
-            <h5 class="text-muted">{{ current_month }}</h5>
-        </div> 
+            <div class="welcome-section p-3 rounded shadow-sm" style="background: linear-gradient(to right, #f8f9fa, #ffffff)">
+                <h2 class="welcome-header animate__animated animate__fadeIn">
+                    <i class="fas fa-hand-wave me-2"></i>Hello {{ current_user.first_name|capitalize }}!
+                </h2>
+                <h5 class="text-muted animate__animated animate__fadeIn animate__delay-1s">{{ current_month }}</h5>
+            </div>
+        </div>
     </div>
 
-    <!-- Monthly Overview Cards -->
+    <!-- Monthly Overview Cards with Hover Effects -->
     <div class="row mb-4">
         <div class="col-md-4">
-            <div class="card bg-success text-white h-100 shadow-sm">
+            <div class="card bg-success text-white h-100 shadow-sm transition-card">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Monthly Income</h5>
-                    <h3 class="card-text mt-3">{{ format_currency(monthly_income) }}</h3>
+                    <h5 class="card-title">
+                        <i class="fas fa-arrow-trend-up me-2"></i>Monthly Income
+                    </h5>
+                    <h3 class="card-text mt-3 counter">{{ format_currency(monthly_income) }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card bg-danger text-white h-100 shadow-sm">
+            <div class="card bg-danger text-white h-100 shadow-sm transition-card">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Monthly Expenses</h5>
-                    <h3 class="card-text mt-3">{{ format_currency(monthly_expenses) }}</h3>
+                    <h5 class="card-title">
+                        <i class="fas fa-arrow-trend-down me-2"></i>Monthly Expenses
+                    </h5>
+                    <h3 class="card-text mt-3 counter">{{ format_currency(monthly_expenses) }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card {{ 'bg-success' if total_balance >= 0 else 'bg-danger' }} text-white h-100 shadow-sm">
+            <div class="card {{ 'bg-success' if total_balance >= 0 else 'bg-danger' }} text-white h-100 shadow-sm transition-card">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Net Balance</h5>
-                    <h3 class="card-text mt-3">{{ format_currency(total_balance) }}</h3>
+                    <h5 class="card-title">
+                        <i class="fas fa-scale-balanced me-2"></i>Net Balance
+                    </h5>
+                    <h3 class="card-text mt-3 counter">{{ format_currency(total_balance) }}</h3>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Recent Transactions with Enhanced UI -->
     <div class="row justify-content-center">
-        <!-- Recent Transactions -->
         <div class="col-md-8">
             <div class="card mb-4 shadow-sm">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
                     <h5 class="mb-0">
                         <i class="fas fa-history me-2"></i>Recent Transactions
                     </h5>
-                    <a href="{{ url_for('view_transactions') }}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-list me-1"></i>View All
-                    </a>
+                    <div>
+                        <a href="{{ url_for('add_transaction') }}" class="btn btn-success btn-sm me-2">
+                            <i class="fas fa-plus me-1"></i>New
+                        </a>
+                        <a href="{{ url_for('view_transactions') }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-list me-1"></i>View All
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body">
                     {% if recent_transactions %}
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle animate__animated animate__fadeIn">
                             <thead class="table-light">
                                 <tr>
                                     <th class="text-center">Date</th>
@@ -65,15 +81,15 @@
                             </thead>
                             <tbody>
                                 {% for transaction in recent_transactions %}
-                                <tr>
+                                <tr class="transaction-row">
                                     <td class="text-center">
                                         <div class="text-muted">
                                             {{ transaction.date.strftime('%Y-%m-%d') }}
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge bg-light text-dark">
-                                            {{ transaction.category.name }}
+                                        <span class="badge rounded-pill bg-light text-dark">
+                                            <i class="fas fa-tag me-1"></i>{{ transaction.category.name }}
                                         </span>
                                     </td>
                                     <td>{{ transaction.description }}</td>
@@ -88,7 +104,7 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="text-center py-5">
+                    <div class="text-center py-5 animate__animated animate__fadeIn">
                         <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
                         <p class="text-muted mb-0">No recent transactions</p>
                         <a href="{{ url_for('add_transaction') }}" class="btn btn-primary btn-sm mt-3">
@@ -102,45 +118,57 @@
     </div>
 </div>
 
+<!-- Add this CSS to your stylesheet -->
 <style>
-    .welcome-header {
-        font-weight: 600;
-        color: #2c3e50;
+.transition-card {
+    transition: transform 0.3s ease-in-out;
+}
+
+.transition-card:hover {
+    transform: translateY(-5px);
+}
+
+.transaction-row {
+    transition: background-color 0.2s ease;
+}
+
+.transaction-row:hover {
+    background-color: rgba(0,0,0,0.02);
+    cursor: pointer;
+}
+
+.welcome-section {
+    border-left: 4px solid #0d6efd;
+}
+
+.counter {
+    opacity: 0;
+    animation: fadeInUp 0.8s ease forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
     }
-    
-    .card {
-        border: none;
-        border-radius: 10px;
-        transition: transform 0.2s;
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
-    
-    .card:hover {
-        transform: translateY(-5px);
-    }
-    
-    .table th {
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.8rem;
-        letter-spacing: 0.5px;
-    }
-    
-    .badge {
-        padding: 0.5em 1em;
-        font-weight: 500;
-    }
-    
-    .table td {
-        vertical-align: middle;
-        padding: 1rem 0.75rem;
-    }
-    
-    .card-header {
-        border-bottom: 1px solid rgba(0,0,0,0.05);
-    }
-    
-    .shadow-sm {
-        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075) !important;
-    }
+}
 </style>
+
+<!-- Add this JavaScript to your scripts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add click event to transaction rows
+    const transactionRows = document.querySelectorAll('.transaction-row');
+    transactionRows.forEach(row => {
+        row.addEventListener('click', function() {
+            // You can add functionality here, like showing transaction details in a modal
+            console.log('Transaction clicked');
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -1,98 +1,122 @@
 {% extends "base.html" %}
 
-{% block title %}Add Transaction{% endblock %}
-
 {% block content %}
-<div class="container mt-4">
+<div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card shadow-sm hover-shadow">
-                <div class="card-body p-4">
-                    <h2 class="card-title text-center mb-4">
-                        <i class="fas fa-plus-circle text-primary me-2"></i>New Transaction
-                    </h2>
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('view_transactions') }}">Transactions</a></li>
+                    <li class="breadcrumb-item active">Add Transaction</li>
+                </ol>
+            </nav>
 
-                    {% with messages = get_flashed_messages(with_categories=true) %}
-                        {% if messages %}
-                            {% for category, message in messages %}
-                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            {% endfor %}
-                        {% endif %}
-                    {% endwith %}
-
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>Add New Transaction
+                    </h4>
+                </div>
+                <div class="card-body">
                     <form id="transactionForm" method="POST" action="{{ url_for('add_transaction') }}" class="needs-validation" novalidate>
                         <!-- Transaction Type Selector -->
-                        <div class="transaction-type-selector mb-4">
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="type" id="income" value="income" checked>
-                                <label class="btn btn-outline-success" for="income">
-                                    <i class="fas fa-arrow-down me-2"></i>Income
-                                </label>
-                                
-                                <input type="radio" class="btn-check" name="type" id="expense" value="expense">
-                                <label class="btn btn-outline-danger" for="expense">
-                                    <i class="fas fa-arrow-up me-2"></i>Expense
-                                </label>
+                        <div class="mb-4">
+                            <div class="transaction-type-selector d-flex justify-content-center">
+                                <div class="btn-group" role="group" aria-label="Transaction Type">
+                                    <input type="radio" class="btn-check" name="type" id="income" value="income" checked>
+                                    <label class="btn btn-outline-success btn-lg" for="income">
+                                        <i class="fas fa-plus-circle me-2"></i>Income
+                                    </label>
+                                    
+                                    <input type="radio" class="btn-check" name="type" id="expense" value="expense">
+                                    <label class="btn btn-outline-danger btn-lg" for="expense">
+                                        <i class="fas fa-minus-circle me-2"></i>Expense
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
                         <div class="row g-3">
-                            <!-- Date Field -->
+                            <!-- Amount -->
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input type="number" class="form-control" id="amount" name="amount" 
+                                           step="0.01" min="0.01" required>
+                                    <label for="amount">
+                                        <i class="fas fa-dollar-sign me-2"></i>Amount
+                                    </label>
+                                    <div class="invalid-feedback">
+                                        Please enter a valid amount
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Date -->
                             <div class="col-md-6">
                                 <div class="form-floating">
                                     <input type="date" class="form-control" id="date" name="date" required>
-                                    <label for="date">Date</label>
+                                    <label for="date">
+                                        <i class="fas fa-calendar me-2"></i>Date
+                                    </label>
+                                    <div class="invalid-feedback">
+                                        Please select a date
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Amount Field -->
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
-                                    <label for="amount">Amount (Ft)</label>
-                                </div>
-                            </div>
-
-                           <!-- Update the Category Select field -->
-                           <div class="col-12">
-                               <div class="form-floating">
-                                   <select class="form-select" id="category_id" name="category_id" required>
-                                       <optgroup label="Income Categories" id="income-categories">
-                                           {% for category in income_categories %}
-                                               <option value="{{ category.id }}" data-type="income">
-                                                   {{ category.name }}
-                                               </option>
-                                           {% endfor %}
-                                       </optgroup>
-                                       
-                                       <optgroup label="Expense Categories" id="expense-categories">
-                                           {% for category in expense_categories %}
-                                               <option value="{{ category.id }}" data-type="expense">
-                                                   {{ category.name }}
-                                               </option>
-                                           {% endfor %}
-                                       </optgroup>
-                                   </select>
-                                   <label for="category_id">Category</label>
-                               </div>
-                           </div>
-                           
-                           
-                            <!-- Description Field -->
+                            <!-- Category -->
                             <div class="col-12">
                                 <div class="form-floating">
-                                    <textarea class="form-control" id="description" name="description" style="height: 100px"></textarea>
-                                    <label for="description">Description (Optional)</label>
+                                    <select class="form-select" id="category_id" name="category_id" required>
+                                        <option value="" disabled>Select a category</option>
+                                        <!-- Income Categories -->
+                                        <optgroup id="income-categories" label="Income Categories">
+                                            {% for category in categories %}
+                                                {% if category.type == 'income' %}
+                                                    <option value="{{ category.id }}" data-type="income">
+                                                        {{ category.name }}
+                                                    </option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </optgroup>
+                                        <!-- Expense Categories -->
+                                        <optgroup id="expense-categories" label="Expense Categories">
+                                            {% for category in categories %}
+                                                {% if category.type == 'expense' %}
+                                                    <option value="{{ category.id }}" data-type="expense">
+                                                        {{ category.name }}
+                                                    </option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </optgroup>
+                                    </select>
+                                    <label for="category_id">
+                                        <i class="fas fa-tag me-2"></i>Category
+                                    </label>
+                                    <div class="invalid-feedback">
+                                        Please select a category
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Description -->
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    <textarea class="form-control" id="description" name="description" 
+                                              style="height: 100px"></textarea>
+                                    <label for="description">
+                                        <i class="fas fa-comment me-2"></i>Description (Optional)
+                                    </label>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Action Buttons -->
                         <div class="d-grid gap-2 mt-4">
                             <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-plus-circle me-2"></i>Add Transaction
+                                <i class="fas fa-save me-2"></i>Save Transaction
                             </button>
                             <a href="{{ url_for('view_transactions') }}" class="btn btn-outline-secondary">
                                 <i class="fas fa-times me-2"></i>Cancel
@@ -105,53 +129,79 @@
     </div>
 </div>
 
-<!-- Toast Container for Notifications -->
+<!-- Toast Container -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 {% endblock %}
 
 {% block styles %}
 <style>
-.hover-shadow {
+/* Card Styles */
+.card {
+    border: none;
+    border-radius: 15px;
     transition: all 0.3s ease;
 }
 
-.hover-shadow:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
 }
 
+.card-header {
+    border-radius: 15px 15px 0 0 !important;
+    padding: 1.5rem;
+}
+
+/* Form Controls */
 .form-floating > .form-control,
 .form-floating > .form-select {
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+    padding: 1rem;
     height: calc(3.5rem + 2px);
     line-height: 1.25;
 }
 
-.form-floating > textarea.form-control {
-    height: 100px;
+.form-floating > .form-control:focus,
+.form-floating > .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13,110,253,0.15);
+}
+
+/* Transaction Type Selector */
+.transaction-type-selector .btn {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    border-radius: 10px;
+    transition: all 0.3s ease;
 }
 
 .btn-check:checked + .btn-outline-success {
     background-color: #198754;
     color: white;
+    transform: scale(1.05);
 }
 
 .btn-check:checked + .btn-outline-danger {
     background-color: #dc3545;
     color: white;
+    transform: scale(1.05);
 }
 
-.transaction-type-selector .btn {
-    padding: 1rem;
-    font-size: 1.1rem;
+/* Buttons */
+.btn {
+    border-radius: 10px;
+    padding: 0.8rem 1.5rem;
+    transition: all 0.3s ease;
 }
 
-.form-control:focus,
-.form-select:focus {
-    border-color: #86b7fe;
-    box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
+.btn:hover {
+    transform: translateY(-2px);
 }
 
+/* Toast Notifications */
 .toast {
+    border-radius: 10px;
     opacity: 0;
     transition: opacity 0.3s ease;
 }
@@ -159,92 +209,71 @@
 .toast.show {
     opacity: 1;
 }
+
+/* Breadcrumb */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+}
+
+.breadcrumb-item a {
+    color: #0d6efd;
+    text-decoration: none;
+}
+
+.breadcrumb-item.active {
+    color: #6c757d;
+}
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Set today's date as default
+    // Set default date
     const dateInput = document.getElementById('date');
     const today = new Date();
-    const formattedDate = today.toISOString().split('T')[0];
-    dateInput.value = formattedDate;
+    dateInput.value = today.toISOString().split('T')[0];
 
+    // Get form elements
+    const form = document.getElementById('transactionForm');
     const typeInputs = document.querySelectorAll('input[name="type"]');
     const categorySelect = document.getElementById('category_id');
-    const form = document.getElementById('transactionForm');
+    const amountInput = document.getElementById('amount');
 
-    // Function to filter categories based on transaction type
+    // Function to filter categories
     function filterCategories() {
         const selectedType = document.querySelector('input[name="type"]:checked').value;
-        const categorySelect = document.getElementById('category_id');
-        const incomeGroup = document.getElementById('income-categories');
-        const expenseGroup = document.getElementById('expense-categories');
+        const options = categorySelect.querySelectorAll('option');
         
-        // Show/hide appropriate categories
-        if (selectedType === 'income') {
-            incomeGroup.style.display = '';
-            expenseGroup.style.display = 'none';
-            
-            // Enable income options and disable expense options
-            categorySelect.querySelectorAll('option').forEach(option => {
-                if (option.getAttribute('data-type') === 'income') {
-                    option.style.display = '';
-                    option.disabled = false;
-                } else {
-                    option.style.display = 'none';
-                    option.disabled = true;
-                }
-            });
-            
-            // Select first available income option
-            const firstIncomeOption = categorySelect.querySelector('option[data-type="income"]');
-            if (firstIncomeOption) {
-                categorySelect.value = firstIncomeOption.value;
-            }
-        } else {
-            incomeGroup.style.display = 'none';
-            expenseGroup.style.display = '';
-            
-            // Enable expense options and disable income options
-            categorySelect.querySelectorAll('option').forEach(option => {
-                if (option.getAttribute('data-type') === 'expense') {
-                    option.style.display = '';
-                    option.disabled = false;
-                } else {
-                    option.style.display = 'none';
-                    option.disabled = true;
-                }
-            });
-            
-            // Select first available expense option
-            const firstExpenseOption = categorySelect.querySelector('option[data-type="expense"]');
-            if (firstExpenseOption) {
-                categorySelect.value = firstExpenseOption.value;
-            }
-        }
-    }
-    
-    // Call filterCategories on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        filterCategories();
-        
-        // Add event listener for type change
-        document.querySelectorAll('input[name="type"]').forEach(input => {
-            input.addEventListener('change', filterCategories);
+        options.forEach(option => {
+            if (option.disabled) return; // Skip the placeholder option
+            const optionType = option.getAttribute('data-type');
+            option.style.display = optionType === selectedType ? '' : 'none';
+            option.disabled = optionType !== selectedType;
         });
-    });
-    
 
-        // Select the first visible option
-        const visibleOptions = Array.from(options).filter(opt => !opt.disabled);
-        if (visibleOptions.length > 0) {
-            categorySelect.value = visibleOptions[0].value;
+        // Select first available option
+        const firstValidOption = categorySelect.querySelector(`option[data-type="${selectedType}"]`);
+        if (firstValidOption) {
+            categorySelect.value = firstValidOption.value;
         }
+
+        // Update form styling based on type
+        updateFormStyling(selectedType);
     }
 
-    // Add event listeners for type change
+    // Function to update form styling based on transaction type
+    function updateFormStyling(type) {
+        const formElements = document.querySelectorAll('.form-control, .form-select');
+        formElements.forEach(element => {
+            element.classList.remove('border-success', 'border-danger');
+            element.classList.add(type === 'income' ? 'border-success' : 'border-danger');
+        });
+    }
+
+    // Add event listeners
     typeInputs.forEach(input => {
         input.addEventListener('change', filterCategories);
     });
@@ -256,68 +285,70 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!form.checkValidity()) {
             event.stopPropagation();
             showToast('Please fill in all required fields', 'danger');
-            form.classList.add('was-validated');
-            return false;
+        } else {
+            // Get form data
+            const formData = new FormData(form);
+            
+            // Submit form
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Transaction added successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.href = '{{ url_for("view_transactions") }}';
+                    }, 1500);
+                } else {
+                    throw new Error(data.message || 'Error adding transaction');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast(error.message || 'Error adding transaction', 'danger');
+            });
         }
-
-        // Get form data
-        const formData = new FormData(form);
         
-        // Send the form data
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast('Transaction added successfully!', 'success');
-                setTimeout(() => {
-                    window.location.href = '{{ url_for("view_transactions") }}';
-                }, 1000);
-            } else {
-                throw new Error(data.message || 'Error adding transaction');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast(error.message || 'Error adding transaction', 'danger');
-        });
+        form.classList.add('was-validated');
     });
+
+    // Toast notification function
+    function showToast(message, type) {
+        const toastContainer = document.querySelector('.toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast, {
+            delay: 3000
+        });
+        bsToast.show();
+        
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
+    }
 
     // Initial category filter
     filterCategories();
 });
-
-function showToast(message, type) {
-    const toastContainer = document.querySelector('.toast-container');
-    const toast = document.createElement('div');
-    toast.className = `toast align-items-center text-white bg-${type} border-0`;
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
-    
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                ${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
-    
-    toastContainer.appendChild(toast);
-    const bsToast = new bootstrap.Toast(toast, {
-        delay: 3000
-    });
-    bsToast.show();
-    
-    toast.addEventListener('hidden.bs.toast', () => {
-        toast.remove();
-    });
-}
 </script>
 {% endblock %}

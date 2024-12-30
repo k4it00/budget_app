@@ -99,97 +99,83 @@ def home():
                              budget_categories=[],
                              current_month=datetime.now().strftime('%B %Y'))
 
-@app.route('/add_transaction', methods=['GET', 'POST'])
+@app.route("/add_transaction", methods=["GET", "POST"])
 @login_required
 def add_transaction():
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
             # Get form data
-            amount = float(request.form['amount'])
-            description = request.form['description']
-            date_str = request.form['date']
-            transaction_type = request.form['type']
-            category_id = request.form['category_id']
-            
-            # Validate category exists and belongs to user
-            category = Category.query.filter_by(
-                id=category_id,
-                user_id=current_user.id
-            ).first()
-            
-            if not category:
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return jsonify({'success': False, 'message': 'Invalid category'}), 400
-                flash('Invalid category selected.', 'danger')
-                return redirect(url_for('add_transaction'))
-            
-            # Validate category type matches transaction type
-            if category.type.lower() != transaction_type.lower():
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return jsonify({'success': False, 'message': 'Category type does not match transaction type'}), 400
-                flash('Category type does not match transaction type.', 'danger')
-                return redirect(url_for('add_transaction'))
-            
-            # Convert date string to datetime
-            date = datetime.strptime(date_str, '%Y-%m-%d')
-            
+            type = request.form.get("type")
+            amount = float(request.form.get("amount"))
+            date = datetime.strptime(request.form.get("date"), "%Y-%m-%d")
+            category_id = int(request.form.get("category_id"))
+            description = request.form.get("description")
+
             # Create new transaction
-            transaction = Transaction(
+            new_transaction = Transaction(
+                type=type,
                 amount=amount,
-                description=description,
                 date=date,
-                type=transaction_type,
                 category_id=category_id,
+                description=description,
                 user_id=current_user.id
             )
-            
-            db.session.add(transaction)
+
+            # Add and commit to database
+            db.session.add(new_transaction)
             db.session.commit()
+
+            # Update user's balance
+            if type == "income":
+                current_user.balance += amount
+            else:
+                current_user.balance -= amount
             
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({
-                    'success': True,
-                    'message': 'Transaction added successfully!'
-                })
-            
-            flash('Transaction added successfully!', 'success')
-            return redirect(url_for('view_transactions'))
-            
+            db.session.commit()
+
+            flash("Transaction added successfully!", "success")
+            return redirect(url_for("view_transactions"))
+
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f'Error adding transaction: {str(e)}')
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'success': False, 'message': str(e)}), 500
-            flash('Error adding transaction. Please try again.', 'danger')
-            pass
-    # GET request - render form
-    try:
-        # Ensure user has default categories
-        ensure_user_has_categories(current_user.id)
+            flash(f"Error adding transaction: {str(e)}", "error")
+            return redirect(url_for("add_transaction"))
+
+    # GET request - show form
+    # Get all categories for the current user
+    categories = Category.query.filter_by(user_id=current_user.id).all()
+    
+    # If user has no categories, create default ones
+    if not categories:
+        default_categories = [
+            Category(name="Salary", type="income", user_id=current_user.id),
+            Category(name="Business", type="income", user_id=current_user.id),
+            Category(name="Investments", type="income", user_id=current_user.id),
+            Category(name="Other Income", type="income", user_id=current_user.id),
+            Category(name="Food & Dining", type="expense", user_id=current_user.id),
+            Category(name="Transportation", type="expense", user_id=current_user.id),
+            Category(name="Utilities", type="expense", user_id=current_user.id),
+            Category(name="Shopping", type="expense", user_id=current_user.id),
+            Category(name="Entertainment", type="expense", user_id=current_user.id),
+            Category(name="Healthcare", type="expense", user_id=current_user.id),
+            Category(name="Other Expenses", type="expense", user_id=current_user.id),
+        ]
         
-        # Get income categories
-        income_categories = Category.query.filter(
-            db.and_(
-                Category.type.ilike('Income'),  # Case-insensitive comparison
-                Category.user_id == current_user.id
-            )
-        ).order_by(Category.name).all()
-        
-        # Get expense categories
-        expense_categories = Category.query.filter(
-            db.and_(
-                Category.type.ilike('Expense'),  # Case-insensitive comparison
-                Category.user_id == current_user.id
-            )
-        ).order_by(Category.name).all()
-        
-        return render_template('add_transaction.html',
-                             income_categories=income_categories,
-                             expense_categories=expense_categories)
-    except Exception as e:
-        app.logger.error(f'Error loading categories: {str(e)}')
-        flash('Error loading categories. Please try again.', 'danger')
-        return redirect(url_for('home'))
+        try:
+            db.session.add_all(default_categories)
+            db.session.commit()
+            categories = default_categories
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error creating default categories: {str(e)}", "error")
+            categories = []
+
+    return render_template(
+        "add_transaction.html", 
+        title="Add Transaction",
+        categories=categories
+    )
+
 
 @app.route('/view_transactions')
 @login_required
