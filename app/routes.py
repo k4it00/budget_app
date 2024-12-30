@@ -1625,34 +1625,8 @@ This link will expire in 1 hour.
         
     return render_template('auth/forgot_password.html')
 
-@app.route('/auth/reset_password', methods=['POST'])
-def auth_reset_password():
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({'success': False, 'error': 'No data provided'}), 400
-        
-        email = data.get('email')
-        password = data.get('password')
-        
-        if not email or not password:
-            return jsonify({'success': False, 'error': 'Email and password are required'}), 400
-            
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            return jsonify({'success': False, 'error': 'User not found'}), 404
-            
-        user.set_password(password)
-        db.session.commit()
-        
-        return jsonify({'success': True, 'message': 'Password updated successfully'})
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error resetting password: {str(e)}")
-        return jsonify({'success': False, 'error': 'Error resetting password'}), 500
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
+@app.route('/auth/reset-password/<token>', methods=['GET', 'POST'], endpoint='auth_reset_password_with_token') 
 def auth_reset_password(token):
     user = User.query.filter_by(reset_token=token).first()
     
