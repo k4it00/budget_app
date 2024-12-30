@@ -726,9 +726,10 @@ def expense_analysis():
             Transaction.date <= end_date
         ).all()
 
-        # Get recurring transactions (without is_active filter for now)
+        # Get recurring transactions
         recurring_transactions = RecurringTransaction.query.filter(
-            RecurringTransaction.user_id == current_user.id
+            RecurringTransaction.user_id == current_user.id,
+            RecurringTransaction.is_active == True  # Only get active recurring transactions
         ).all()
 
         # Initialize data structures
@@ -754,19 +755,18 @@ def expense_analysis():
                 total_expenses += amount
                 
                 # Category tracking for expenses
-                category_name = transaction.category.name if transaction.category else 'Uncategorized'
-                category_totals[category_name] = category_totals.get(category_name, 0.0) + amount
+                if transaction.category:
+                    category_name = transaction.category.name
+                    if category_name not in category_totals:
+                        category_totals[category_name] = 0.0
+                    category_totals[category_name] += amount
 
-        # Process recurring transactions
+        # Process recurring transactions for the current month
         current_month = today.strftime('%Y-%m')
         if current_month not in monthly_data:
             monthly_data[current_month] = {'income': 0.0, 'expenses': 0.0}
 
         for recurring in recurring_transactions:
-            # Skip if the transaction has is_active attribute and it's False
-            if hasattr(recurring, 'is_active') and not recurring.is_active:
-                continue
-                
             amount = float(recurring.amount)
             
             if recurring.type.lower() == 'income':
@@ -777,8 +777,11 @@ def expense_analysis():
                 total_expenses += amount
                 
                 # Add to category totals
-                category_name = recurring.category.name if recurring.category else 'Uncategorized'
-                category_totals[category_name] = category_totals.get(category_name, 0.0) + amount
+                if recurring.category:
+                    category_name = recurring.category.name
+                    if category_name not in category_totals:
+                        category_totals[category_name] = 0.0
+                    category_totals[category_name] += amount
 
         # Prepare monthly chart data
         sorted_months = sorted(monthly_data.keys())

@@ -35,20 +35,18 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Get the chart data from the server
+    // Debug: Print the data to console
     const chartData = {{ chart_data|tojson|safe }};
-    console.log('Chart Data:', chartData); // Debug log
+    console.log('Chart Data:', chartData);
 
-    // Monthly Trends Chart
+    // Define Monthly Trends Options first
     const monthlyTrendsOptions = {
         series: [{
             name: 'Income',
-            data: chartData.monthly.income,
-            color: '#1cc88a' // Green for income
+            data: chartData.monthly.income
         }, {
             name: 'Expenses',
-            data: chartData.monthly.expenses,
-            color: '#e74a3b' // Red for expenses
+            data: chartData.monthly.expenses
         }],
         chart: {
             height: 350,
@@ -57,37 +55,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 enabled: true
             },
             toolbar: {
-                show: true,
-                tools: {
-                    download: true,
-                    selection: true,
-                    zoom: true,
-                    zoomin: true,
-                    zoomout: true,
-                    pan: true,
-                    reset: true
-                }
+                show: true
             }
         },
+        colors: ['#1cc88a', '#e74a3b'],
         stroke: {
             curve: 'smooth',
             width: 3
         },
         markers: {
-            size: 4,
+            size: 0,
             hover: {
-                size: 6
+                size: 0
             }
         },
         dataLabels: {
             enabled: false
         },
         grid: {
+            show: true,
             borderColor: '#e7e7e7',
-            row: {
-                colors: ['#f3f3f3', 'transparent'],
-                opacity: 0.5
-            }
+            strokeDashArray: 5,
+            position: 'back'
         },
         xaxis: {
             categories: chartData.monthly.labels,
@@ -99,9 +88,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         },
         yaxis: {
-            title: {
-                text: 'Amount (Ft)'
-            },
             labels: {
                 formatter: function(val) {
                     return 'Ft ' + val.toLocaleString();
@@ -110,7 +96,6 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         tooltip: {
             shared: true,
-            intersect: false,
             y: {
                 formatter: function(val) {
                     return 'Ft ' + val.toLocaleString();
@@ -118,12 +103,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         },
         legend: {
-            position: 'top',
-            horizontalAlign: 'right'
+            position: 'top'
         }
     };
 
-    // Expense Distribution Chart
+    // Define Expense Distribution Options
     const expenseDistributionOptions = {
         series: chartData.expenses_by_category.values,
         chart: {
@@ -140,23 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         },
         dataLabels: {
-            enabled: true,
-            formatter: function(val, opts) {
-                return opts.w.config.labels[opts.seriesIndex] + ': ' + val.toFixed(1) + '%';
-            }
-        },
-        tooltip: {
-            y: {
-                formatter: function(val) {
-                    return 'Ft ' + val.toLocaleString();
-                }
-            }
-        },
-        legend: {
-            position: 'bottom',
-            formatter: function(seriesName, opts) {
-                return seriesName + ': Ft ' + opts.w.globals.series[opts.seriesIndex].toLocaleString();
-            }
+            enabled: true
         },
         responsive: [{
             breakpoint: 480,
@@ -168,25 +136,39 @@ document.addEventListener('DOMContentLoaded', function() {
                     position: 'bottom'
                 }
             }
-        }]
+        }],
+        tooltip: {
+            y: {
+                formatter: function(val) {
+                    return 'Ft ' + val.toLocaleString();
+                }
+            }
+        }
     };
 
+    // Initialize Charts
     try {
-        // Initialize Monthly Trends Chart
+        // Debug: Check if containers exist
+        console.log('Chart containers:', {
+            trends: document.querySelector("#monthlyTrendsChart"),
+            distribution: document.querySelector("#expenseDistributionChart")
+        });
+
+        // Create Monthly Trends Chart
         const monthlyTrendsChart = new ApexCharts(
             document.querySelector("#monthlyTrendsChart"), 
             monthlyTrendsOptions
         );
         monthlyTrendsChart.render();
 
-        // Initialize Expense Distribution Chart
+        // Create Expense Distribution Chart
         const expenseDistributionChart = new ApexCharts(
             document.querySelector("#expenseDistributionChart"), 
             expenseDistributionOptions
         );
         expenseDistributionChart.render();
 
-        // Toggle chart type functionality
+        // Toggle chart type
         document.getElementById('toggleChartView').addEventListener('click', function() {
             const currentType = monthlyTrendsChart.w.config.chart.type;
             const newType = currentType === 'line' ? 'bar' : 'line';
@@ -201,9 +183,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 fill: {
                     opacity: newType === 'line' ? 0.2 : 1
-                },
-                markers: {
-                    size: newType === 'line' ? 4 : 0
                 }
             });
         });
