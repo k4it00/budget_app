@@ -165,6 +165,74 @@ def get_or_create_category(name: str, type: str, user_id: int) -> Category:
     except SQLAlchemyError as e:
         logger.error(f"Error getting/creating category: {str(e)}")
         raise
+
+def process_transaction_data(regular_transactions, recurring_transactions, today=None):
+    if today is None:
+        today = datetime.utcnow()
+        
+    monthly_data = {}
+    category_totals = {}
+    total_income = 0.0
+    total_expenses = 0.0
+
+    
+    # Process regular transactions
+    for transaction in regular_transactions:
+        amount = float(transaction.amount)
+        if transaction.type.lower() == 'expense' and transaction.category:
+            
+            # Only add categories with actual transactions
+            category_name = transaction.category.name
+            if category_name not in category_totals:
+                category_totals[category_name] = 0.0
+            category_totals[category_name] += amount
+            
+        # Rest of transaction processing
+        month_key = transaction.date.strftime('%Y-%m')
+        if month_key not in monthly_data:
+            monthly_data[month_key] = {'income': 0.0, 'expenses': 0.0}
+        
+        if transaction.type.lower() == 'income':
+            monthly_data[month_key]['income'] += amount
+            total_income += amount
+        else:
+            monthly_data[month_key]['expenses'] += amount
+            total_expenses += amount
+
+    # Process recurring transactions
+    current_month = today.strftime('%Y-%m')
+    if current_month not in monthly_data:
+        monthly_data[current_month] = {'income': 0.0, 'expenses': 0.0}
+        
+    for recurring in recurring_transactions:
+        amount = float(recurring.amount)
+        if recurring.type.lower() == 'expense' and recurring.category:
+            
+            # Only add categories with actual transactions
+            category_name = recurring.category.name
+            if category_name not in category_totals:
+                category_totals[category_name] = 0.0
+            category_totals[category_name] += amount
+            
+        if recurring.type.lower() == 'income':
+            monthly_data[current_month]['income'] += amount
+            total_income += amount
+        else:
+            monthly_data[current_month]['expenses'] += amount
+            total_expenses += amount
+
+    # Remove categories with zero amounts
+    category_totals = {k: v for k, v in category_totals.items() if v > 0}
+    
+    
+    return {
+        'monthly_data': monthly_data,
+        'category_totals': category_totals,
+        'total_income': total_income,
+        'total_expenses': total_expenses,
+        'net_savings': total_income - total_expenses
+    }
+
 def process_csv_import(file, user_id):
     
     try:

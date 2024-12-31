@@ -1,4 +1,4 @@
-from app.helpers import ensure_user_has_categories, process_monthly_trends, process_expense_distribution
+from app.helpers import ensure_user_has_categories, process_monthly_trends, process_expense_distribution, process_transaction_data
 from flask import render_template, request, redirect, url_for, flash, jsonify, Response, current_app, session
 from flask_login import login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta, date
@@ -22,82 +22,54 @@ from flask_mail import Message
 from app import mail  
 
 @app.route('/')
+@app.route('/home')
 @login_required
 def home():
     try:
-        # Calculate date range for current month
-        today = datetime.now()
-        start_of_month = datetime(today.year, today.month, 1)
-        end_of_month = start_of_month + relativedelta(months=1)
-
-        # Query transactions for current month
-        monthly_transactions = db.session.query(Transaction).join(
-            Category
-        ).filter(
-            Transaction.user_id == current_user.id,
-            Transaction.date >= start_of_month,
-            Transaction.date < end_of_month
-        ).all()
-
-        # Calculate monthly totals
-        monthly_income = sum(t.amount for t in monthly_transactions if t.type.lower() == 'income')
-        monthly_expenses = sum(t.amount for t in monthly_transactions if t.type.lower() == 'expense')
-        total_balance = monthly_income - monthly_expenses
-
-        # Get recent transactions with proper relationship loading
-        recent_transactions = db.session.query(Transaction).join(
-            Category
-        ).filter(
-            Transaction.user_id == current_user.id
+        # Get current month's regular transactions
+        today = datetime.utcnow()
+        start_date = today.replace(day=1)
+        
+        # Get recent transactions (last 5)
+        recent_transactions = Transaction.query.filter_by(
+            user_id=current_user.id
         ).order_by(
             Transaction.date.desc()
         ).limit(5).all()
 
-        # Get budget categories and their spending
-        budget_categories = []
-        expense_categories = Category.query.filter(
-            Category.user_id == current_user.id,
-            func.lower(Category.type) == 'expense'
+        # Get recurring transactions
+        recurring_transactions = RecurringTransaction.query.filter_by(
+            user_id=current_user.id,
+            is_active=True
         ).all()
 
-        for category in expense_categories:
-            # Calculate spent amount for this category in current month
-            spent = sum(t.amount for t in monthly_transactions 
-                       if t.category_id == category.name and t.type.lower() == 'expense')
+        # Debug log
+        current_app.logger.debug(f"Found {len(recent_transactions)} recent transactions")
+        current_app.logger.debug(f"Found {len(recurring_transactions)} recurring transactions")
 
-            # Calculate percentage of budget used
-            if category.budget_limit and category.budget_limit > 0:
-                percentage = (spent / category.budget_limit) * 100
-            else:
-                percentage = 0
+        # Process data for monthly totals
+        data = process_transaction_data(
+            Transaction.query.filter(
+                Transaction.user_id == current_user.id,
+                Transaction.date >= start_date,
+                Transaction.date <= today
+            ).all(),
+            recurring_transactions,
+            today
+        )
 
-            budget_categories.append({
-                'name': category.name,
-                'spent': spent,
-                'budget_limit': category.budget_limit,
-                'percentage': min(round(percentage, 1), 100)
-            })
-
-        current_app.logger.info(f"Successfully loaded dashboard for user {current_user.id}")
-        
         return render_template('index.html',
-                             total_balance=total_balance,
-                             monthly_income=monthly_income,
-                             monthly_expenses=monthly_expenses,
                              recent_transactions=recent_transactions,
-                             budget_categories=budget_categories,
+                             monthly_income=data['total_income'],
+                             total_expenses=data['total_expenses'],
+                             total_balance=data['net_savings'],
                              current_month=today.strftime('%B %Y'))
 
     except Exception as e:
-        current_app.logger.error(f"Error in home route: {str(e)}", exc_info=True)
-        flash('An error occurred while loading the dashboard', 'error')
-        return render_template('index.html',
-                             total_balance=0,
-                             monthly_income=0,
-                             monthly_expenses=0,
-                             recent_transactions=[],
-                             budget_categories=[],
-                             current_month=datetime.now().strftime('%B %Y'))
+        current_app.logger.error(f"Error in home route: {str(e)}")
+        flash('An error occurred while loading the dashboard.', 'error')
+        return redirect(url_for('login'))
+
 
 @app.route("/add_transaction", methods=["GET", "POST"])
 @login_required
@@ -172,52 +144,24 @@ def add_transaction():
 @login_required
 def view_transactions():
     try:
-        # Get filter parameters
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
-        category_id = request.args.get('category_id')
-        transaction_type = request.args.get('type')
-
-        # Base query
-        query = Transaction.query.filter_by(user_id=current_user.id)
-
-        # Apply filters
-        if start_date:
-            query = query.filter(Transaction.date >= datetime.strptime(start_date, '%Y-%m-%d'))
-        if end_date:
-            query = query.filter(Transaction.date <= datetime.strptime(end_date, '%Y-%m-%d'))
-        if category_id:
-            query = query.filter(Transaction.category_id == category_id)
-        if transaction_type:
-            query = query.filter(Transaction.type == transaction_type)
-
-        # Get transactions
-        transactions = query.order_by(Transaction.date.desc()).all()
-
-        # Calculate totals
-        total_income = sum(t.amount for t in transactions if t.type == 'income')
-        total_expenses = sum(t.amount for t in transactions if t.type == 'expense')
-
-        # Get categories
+        regular_transactions = Transaction.query.filter_by(user_id=current_user.id).all()
+        recurring_transactions = RecurringTransaction.query.filter_by(user_id=current_user.id).all()
         categories = Category.query.filter_by(user_id=current_user.id).all()
-        income_categories = [c for c in categories if c.type == 'income']
-        expense_categories = [c for c in categories if c.type == 'expense']
-
+        
+        data = process_transaction_data(regular_transactions, recurring_transactions)
+        
         return render_template('view_transactions.html',
-                             transactions=transactions,
+                             transactions=regular_transactions,
+                             recurring_transactions=recurring_transactions,
                              categories=categories,
-                             income_categories=income_categories,
-                             expense_categories=expense_categories,
-                             total_income=total_income,
-                             total_expenses=total_expenses)
-
+                             total_income=data['total_income'],
+                             total_expenses=data['total_expenses'],
+                             net_balance=data['net_savings'])
     except Exception as e:
-        app.logger.error(f'Error viewing transactions: {str(e)}')
-        flash('Error loading transactions', 'danger')
+        current_app.logger.error(f"Error in view_transactions: {str(e)}")
+        flash('An error occurred while loading transactions.', 'error')
         return redirect(url_for('home'))
-
-
-
+    
 @app.route('/delete_transaction/<int:transaction_id>', methods=['POST'])
 @login_required
 def delete_transaction(transaction_id):
@@ -727,127 +671,61 @@ from decimal import Decimal
 @login_required
 def expense_analysis():
     try:
-        # Get the date range (default to current month)
         today = datetime.utcnow()
         start_date = today.replace(day=1)
         end_date = today
-
-        # Get regular transactions
+        
+        # Get filtered transactions with both income and expenses
         regular_transactions = Transaction.query.filter(
             Transaction.user_id == current_user.id,
             Transaction.date >= start_date,
             Transaction.date <= end_date
         ).all()
 
-        # Get recurring transactions
+
+        # Get active recurring transactions
         recurring_transactions = RecurringTransaction.query.filter(
             RecurringTransaction.user_id == current_user.id,
-            RecurringTransaction.is_active == True  # Only get active recurring transactions
+            RecurringTransaction.is_active == True
         ).all()
 
-        # Initialize data structures
-        monthly_data = {}
-        category_totals = {}
-        total_income = 0.0
-        total_expenses = 0.0
-
-        # Process regular transactions
-        for transaction in regular_transactions:
-            amount = float(transaction.amount)
-            
-            # Monthly tracking
-            month_key = transaction.date.strftime('%Y-%m')
-            if month_key not in monthly_data:
-                monthly_data[month_key] = {'income': 0.0, 'expenses': 0.0}
-            
-            if transaction.type.lower() == 'income':
-                monthly_data[month_key]['income'] += amount
-                total_income += amount
-            else:  # expense
-                monthly_data[month_key]['expenses'] += amount
-                total_expenses += amount
-                
-                # Category tracking for expenses
-                if transaction.category:
-                    category_name = transaction.category.name
-                    if category_name not in category_totals:
-                        category_totals[category_name] = 0.0
-                    category_totals[category_name] += amount
-
-        # Process recurring transactions for the current month
-        current_month = today.strftime('%Y-%m')
-        if current_month not in monthly_data:
-            monthly_data[current_month] = {'income': 0.0, 'expenses': 0.0}
-
-        for recurring in recurring_transactions:
-            amount = float(recurring.amount)
-            
-            if recurring.type.lower() == 'income':
-                monthly_data[current_month]['income'] += amount
-                total_income += amount
-            else:  # expense
-                monthly_data[current_month]['expenses'] += amount
-                total_expenses += amount
-                
-                # Add to category totals
-                if recurring.category:
-                    category_name = recurring.category.name
-                    if category_name not in category_totals:
-                        category_totals[category_name] = 0.0
-                    category_totals[category_name] += amount
-
-        # Prepare monthly chart data
+        # Process transactions
+        data = process_transaction_data(regular_transactions, recurring_transactions, today)
+        
+        # Prepare chart data
+        monthly_data = data['monthly_data']
         sorted_months = sorted(monthly_data.keys())
-        monthly_labels = [datetime.strptime(m, '%Y-%m').strftime('%b %Y') for m in sorted_months]
-        monthly_income = [monthly_data[m]['income'] for m in sorted_months]
-        monthly_expenses = [monthly_data[m]['expenses'] for m in sorted_months]
-
-        # Sort categories by amount for pie chart
-        sorted_categories = sorted(category_totals.items(), key=lambda x: x[1], reverse=True)
-        expense_labels = [cat[0] for cat in sorted_categories]
-        expense_values = [cat[1] for cat in sorted_categories]
-
-        # Calculate summary statistics
-        net_savings = total_income - total_expenses
-        savings_rate = round((net_savings / total_income * 100) if total_income > 0 else 0, 1)
-
-        # If no data, provide default values
-        if not monthly_labels:
-            monthly_labels = [today.strftime('%b %Y')]
-            monthly_income = [0.0]
-            monthly_expenses = [0.0]
-
-        if not expense_labels:
-            expense_labels = ['No Expenses']
-            expense_values = [0.0]
-
-        # Create chart_data dictionary
+        
         chart_data = {
             'monthly': {
-                'labels': monthly_labels,
-                'income': monthly_income,
-                'expenses': monthly_expenses
+                'labels': [datetime.strptime(m, '%Y-%m').strftime('%b %Y') for m in sorted_months],
+                'income': [monthly_data[m]['income'] for m in sorted_months],
+                'expenses': [monthly_data[m]['expenses'] for m in sorted_months]
             },
             'expenses_by_category': {
-                'labels': expense_labels,
-                'values': expense_values
+                'labels': list(data['category_totals'].keys()) or ['No Expenses'],
+                'values': list(data['category_totals'].values()) or [0.0]
             }
         }
+
+        # Calculate savings rate with safe division
+        total_income = data['total_income'] or 0
+        net_savings = data['net_savings'] or 0
+        savings_rate = round((net_savings / total_income * 100) if total_income > 0 else 0, 1)
 
         return render_template('expense_analysis.html',
                              chart_data=chart_data,
                              total_income=total_income,
-                             total_expenses=total_expenses,
+                             total_expenses=data['total_expenses'],
                              net_savings=net_savings,
                              savings_rate=savings_rate)
 
     except Exception as e:
         current_app.logger.error(f"Error in expense_analysis: {str(e)}")
-        import traceback
         current_app.logger.error(traceback.format_exc())
         flash('An error occurred while loading the expense analysis.', 'danger')
         return redirect(url_for('home'))
-
+    
 @app.route('/api/expense_data')
 @login_required
 def get_expense_data():

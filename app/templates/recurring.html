@@ -19,6 +19,7 @@
                         <th>Type</th>
                         <th>Name</th>
                         <th>Amount</th>
+                        <th>Category</th>
                         <th>Frequency</th>
                         <th>Start Date</th>
                         <th>End Date</th>
@@ -35,6 +36,7 @@
                         </td>
                         <td>{{ transaction.name }}</td>
                         <td>{{ transaction.amount|format_currency }}</td>
+                        <td>{{ transaction.category.name if transaction.category else 'No Category' }}</td>
                         <td>{{ transaction.frequency|title }}</td>
                         <td>{{ transaction.start_date.strftime('%Y-%m-%d') }}</td>
                         <td>{{ transaction.end_date.strftime('%Y-%m-%d') if transaction.end_date else 'No end date' }}</td>
@@ -88,6 +90,17 @@
                             <option value="weekly">Weekly</option>
                             <option value="monthly">Monthly</option>
                             <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" name="category_id" id="recurring_category">
+                            <option value="">Select Category</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}" data-type="{{ category.type }}">
+                                {{ category.name }}
+                            </option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">
@@ -193,6 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('recurring_type').value = recurring.type;
                     document.getElementById('recurring_amount').value = recurring.amount;
                     document.getElementById('recurring_frequency').value = recurring.frequency;
+                    document.getElementById('recurring_category').value = recurring.category_id;
                     document.getElementById('recurring_start_date').value = recurring.start_date;
                     if (recurring.end_date) {
                         document.getElementById('recurring_end_date').value = recurring.end_date;

@@ -128,7 +128,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted mb-2">Total Expenses</h6>
-                            <h4 class="mb-0 text-danger counter" id="expense-total">{{ format_currency(total_expenses) }}</h4>
+                            <h4 class="mb-0 text-danger counter" id="expense-total">Ft {{ "{:,.0f}".format(total_expenses) }}</h4>
                         </div>
                         <div class="rounded-circle bg-danger bg-opacity-10 p-3">
                             <i class="fas fa-credit-card text-danger fa-lg"></i>
@@ -615,6 +615,7 @@ function updateTotals() {
     let totalIncome = 0;
     let totalExpense = 0;
 
+    // Regular transactions
     rows.forEach(row => {
         const amount = parseFloat(row.getAttribute('data-amount') || 0);
         const type = row.getAttribute('data-type');
@@ -626,39 +627,39 @@ function updateTotals() {
         }
     });
 
-    // Update total displays
-    const incomeTotal = document.getElementById('income-total');
-    if (incomeTotal) {
-        incomeTotal.textContent = new Intl.NumberFormat('hu-HU', {
-            style: 'decimal',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(totalIncome) + ' Ft';
-    }
+    // Add recurring transactions
+    document.querySelectorAll('tr[data-recurring-id]').forEach(row => {
+        const amount = parseFloat(row.getAttribute('data-amount') || 0);
+        const type = row.getAttribute('data-type');
 
-    const expenseTotal = document.getElementById('expense-total');
-    if (expenseTotal) {
-        expenseTotal.textContent = new Intl.NumberFormat('hu-HU', {
-            style: 'decimal',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(totalExpense) + ' Ft';
-    }
-
-    const balance = document.getElementById('balance-total');
-    if (balance) {
-        const balanceAmount = totalIncome - totalExpense;
-        balance.textContent = new Intl.NumberFormat('hu-HU', {
-            style: 'decimal',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(balanceAmount) + ' Ft';
-        
-        // Update balance card color
-        const balanceCard = balance.closest('.card');
-        if (balanceCard) {
-            balanceCard.className = `card ${balanceAmount >= 0 ? 'bg-primary' : 'bg-warning'} text-white`;
+        if (type === 'income') {
+            totalIncome += amount;
+        } else if (type === 'expense') {
+            totalExpense += amount;
         }
+    });
+
+    // Update displays with formatted numbers
+    const formatter = new Intl.NumberFormat('hu-HU', {
+        style: 'decimal',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    });
+
+    if (document.getElementById('income-total')) {
+        document.getElementById('income-total').textContent = 
+            'Ft ' + formatter.format(totalIncome);
+    }
+
+    if (document.getElementById('expense-total')) {
+        document.getElementById('expense-total').textContent = 
+            'Ft ' + formatter.format(totalExpense);
+    }
+
+    if (document.getElementById('balance-total')) {
+        const balance = totalIncome - totalExpense;
+        document.getElementById('balance-total').textContent = 
+            'Ft ' + formatter.format(balance);
     }
 }
 
