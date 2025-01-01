@@ -15,7 +15,6 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
-from urllib.parse import urlparse
 from flask_mail import Mail
 from dotenv import load_dotenv
 
@@ -23,7 +22,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Initialize extensions
-db = SQLAlchemy()
 login_manager = LoginManager()
 mail = Mail()
 app = Flask(__name__,
@@ -35,22 +33,19 @@ app.config['CACHE_REDIS_URL'] = 'redis://localhost:6379/0'
 secret_key = secrets.token_urlsafe(16)
 app.secret_key = secret_key 
 app.config.from_object(Config)
+database_url = os.getenv('DATABASE_URI')
 
-# Configure the database URL
-DATABASE_URL = os.getenv('DATABASE_URI')
-
-# Keep your existing postgres:// to postgresql:// conversion logic
-if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
-    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
 # Configure SQLAlchemy - MOVED BEFORE db.init_app(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_size': 5,
     'pool_recycle': 1800,
     'pool_pre_ping': True
 }
+db = SQLAlchemy()
+
 # Configure static files
 app.config.update(
     STATIC_FOLDER=os.path.join(app.root_path, 'static'),
