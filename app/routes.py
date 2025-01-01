@@ -57,7 +57,7 @@ def home():
             recurring_transactions,
             today
         )
-
+ 
         return render_template('index.html',
                              recent_transactions=recent_transactions,
                              monthly_income=data['total_income'],
