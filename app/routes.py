@@ -48,21 +48,7 @@ def home():
         current_app.logger.debug(f"Found {len(recent_transactions)} recent transactions")
         current_app.logger.debug(f"Found {len(recurring_transactions)} recurring transactions")
 
-<<<<<<< HEAD
     
-=======
-        # Process data for monthly totals
-        data = process_transaction_data(
-            Transaction.query.filter(
-                Transaction.user_id == current_user.id,
-                Transaction.date >= start_date,
-                Transaction.date <= today
-            ).all(),
-            recurring_transactions,
-            today
-        )
- 
->>>>>>> f03ee59bf01b643fd6475c0002506c1913513651
         return render_template('index.html',
                              recent_transactions=recent_transactions,
                              total_income=data['total_income'],
