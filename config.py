@@ -9,11 +9,13 @@ class Config:
     GOOGLE_CLIENT_SECRET  = os.getenv('GOOGLE_CLIENT_SECRET')
     CACHE_TYPE = 'redis'
     CACHE_REDIS_URL = 'redis://localhost:6379/0'
-    CDN_DOMAIN = os.environ.get('CDN_DOMAIN') or 'https://your-cdn-domain.com'
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 587
     MAIL_USE_TLS = True
     MAIL_USERNAME = os.getenv('MAIL_USERNAME')
-    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD') 
     MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
-
+    STATIC_FOLDER = 'static'
+    STATIC_URL_PATH = '/static'
+    STATIC_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app/static')
+    

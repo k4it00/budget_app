@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, url_for
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -26,12 +26,12 @@ load_dotenv()
 db = SQLAlchemy()
 login_manager = LoginManager()
 mail = Mail()
-
-app = Flask(__name__, static_url_path='/static', static_folder='static')
+app = Flask(__name__,
+           static_url_path='/static',
+           static_folder='static')
+app.config.from_object(Config)
 app.config['CACHE_TYPE'] = 'redis'
 app.config['CACHE_REDIS_URL'] = 'redis://localhost:6379/0'
-cache = Cache(app)
-Compress(app)
 secret_key = secrets.token_urlsafe(16)
 app.secret_key = secret_key 
 app.config.from_object(Config)
@@ -51,13 +51,24 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_recycle': 1800,
     'pool_pre_ping': True
 }
+# Configure static files
+app.config.update(
+    STATIC_FOLDER=os.path.join(app.root_path, 'static'),
+    SEND_FILE_MAX_AGE_DEFAULT=31536000
+    )
 
 # Initialize extensions with app - MOVED AFTER setting SQLALCHEMY_DATABASE_URI
 db.init_app(app)
 migrate = Migrate(app, db)
 mail.init_app(app)
 login_manager.init_app(app)
+cache = Cache(app)
+Compress(app)
 
+# Register template function
+@app.template_global()
+def static_file_url(filename):
+    return url_for('static', filename=filename)
 # Initialize OAuth
 oauth = OAuth(app)
 google = oauth.register(
@@ -80,7 +91,6 @@ from app import helpers
 
 # Register the utility processor
 app.context_processor(helpers.utility_processor)
-app.context_processor(helpers.override_url_for)
 @app.template_filter('format_currency')
 def format_currency(value):
     return "{:,.0f} Ft".format(value)
@@ -88,7 +98,6 @@ def format_currency(value):
 @app.template_filter('format_date')
 def format_date(value):
     return value.strftime('%Y-%m-%d')
-
 # Import routes and models at the end to avoid circular imports
 from app import routes, models
 

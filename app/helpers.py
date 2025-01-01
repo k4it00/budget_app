@@ -10,6 +10,7 @@ from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
 import logging
+import os
 import pandas as pd
 import calendar
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -284,14 +285,17 @@ def get_all_users():
     from app.models import User  # Import here to avoid circular import
     return User.query.all()
 
-def cdn_url_for(endpoint, **values):
-    if endpoint == 'static':
-        values['filename'] = values.get('filename', '')
-        return f"{current_app.config['CDN_DOMAIN']}/{values['filename']}"
-    return url_for(endpoint, **values)
-
-def override_url_for():
-    return dict(url_for=cdn_url_for)
+def static_file_url(filename):
+    """Generate URL for static files using config settings"""
+    try:
+        static_path = os.path.join(current_app.config['STATIC_ROOT'], filename)
+        if os.path.exists(static_path):
+            return url_for('static', filename=filename)
+        logger.warning(f"Static file not found: {static_path}")
+        return ''
+    except Exception as e:
+        logger.error(f"Error generating static URL: {str(e)}")
+        return ''
 
 def calculate_current_spending():
     expenses = Transaction.query.filter_by(type='Expense').all()
