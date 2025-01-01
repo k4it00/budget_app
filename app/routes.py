@@ -37,30 +37,21 @@ def home():
             Transaction.date.desc()
         ).limit(5).all()
 
-        # Get recurring transactions
-        recurring_transactions = RecurringTransaction.query.filter_by(
-            user_id=current_user.id,
-            is_active=True
-        ).all()
+        # Get filtered transactions with both income and expenses
+        regular_transactions = Transaction.query.filter_by(user_id=current_user.id).all()
+        recurring_transactions = RecurringTransaction.query.filter_by(user_id=current_user.id).all()
+        categories = Category.query.filter_by(user_id=current_user.id).all()
+
+        data = process_transaction_data(regular_transactions, recurring_transactions)
 
         # Debug log
         current_app.logger.debug(f"Found {len(recent_transactions)} recent transactions")
         current_app.logger.debug(f"Found {len(recurring_transactions)} recurring transactions")
 
-        # Process data for monthly totals
-        data = process_transaction_data(
-            Transaction.query.filter(
-                Transaction.user_id == current_user.id,
-                Transaction.date >= start_date,
-                Transaction.date <= today
-            ).all(),
-            recurring_transactions,
-            today
-        )
-
+    
         return render_template('index.html',
                              recent_transactions=recent_transactions,
-                             monthly_income=data['total_income'],
+                             total_income=data['total_income'],
                              total_expenses=data['total_expenses'],
                              total_balance=data['net_savings'],
                              current_month=today.strftime('%B %Y'))
@@ -676,22 +667,13 @@ def expense_analysis():
         end_date = today
         
         # Get filtered transactions with both income and expenses
-        regular_transactions = Transaction.query.filter(
-            Transaction.user_id == current_user.id,
-            Transaction.date >= start_date,
-            Transaction.date <= end_date
-        ).all()
-
-
-        # Get active recurring transactions
-        recurring_transactions = RecurringTransaction.query.filter(
-            RecurringTransaction.user_id == current_user.id,
-            RecurringTransaction.is_active == True
-        ).all()
+        regular_transactions = Transaction.query.filter_by(user_id=current_user.id).all()
+        recurring_transactions = RecurringTransaction.query.filter_by(user_id=current_user.id).all()
+        categories = Category.query.filter_by(user_id=current_user.id).all()
 
         # Process transactions
-        data = process_transaction_data(regular_transactions, recurring_transactions, today)
-        
+        data = process_transaction_data(regular_transactions, recurring_transactions)
+                
         # Prepare chart data
         monthly_data = data['monthly_data']
         sorted_months = sorted(monthly_data.keys())
@@ -715,7 +697,7 @@ def expense_analysis():
 
         return render_template('expense_analysis.html',
                              chart_data=chart_data,
-                             total_income=total_income,
+                             total_income=data['total_income'],
                              total_expenses=data['total_expenses'],
                              net_savings=net_savings,
                              savings_rate=savings_rate)

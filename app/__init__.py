@@ -37,7 +37,7 @@ app.secret_key = secret_key
 app.config.from_object(Config)
 
 # Configure the database URL
-DATABASE_URL = os.getenv('DATABASE_URL')
+DATABASE_URL = os.getenv('DATABASE_URI')
 
 # Keep your existing postgres:// to postgresql:// conversion logic
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
