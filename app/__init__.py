@@ -13,7 +13,6 @@ from werkzeug.exceptions import NotFound
 import secrets
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
 from flask_mail import Mail
 from dotenv import load_dotenv
@@ -35,6 +34,8 @@ app.secret_key = secret_key
 app.config.from_object(Config)
 database_url = os.getenv('DATABASE_URI')
 
+if not database_url:
+    raise ValueError("No DATABASE_URI set in environment variables")
 
 # Configure SQLAlchemy - MOVED BEFORE db.init_app(app)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

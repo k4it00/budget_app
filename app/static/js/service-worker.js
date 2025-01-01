@@ -27,7 +27,7 @@ self.addEventListener('install', function(event) {
                 '/',
                 '/static/css/style.css',
                 '/static/js/main.js',
-                '/static/images/icon.png'
+                '/static/img/icon.png'
             ]);
         })
     );
