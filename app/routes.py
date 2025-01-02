@@ -12,7 +12,7 @@ import json
 import plotly.express as px
 import plotly
 import calendar 
-from app.helpers import set_user_password, check_user_password
+from app.helpers import set_user_password, check_user_password, convert_revolut_statement
 from sqlalchemy.exc import SQLAlchemyError 
 from app.models import User, Category, Transaction, BudgetGoal, RecurringTransaction
 from app.helpers import ensure_user_has_recurring_transactions, process_pending_recurring_transactions, get_all_categories, get_budget_categories, calculate_current_spending, format_currency
@@ -1310,6 +1310,84 @@ def get_chart_data():
         'expense_distribution': distribution_data
     })
 
+@app.route('/import_revolut', methods=['POST'])
+@login_required
+def import_revolut():
+    try:
+        if 'file' not in request.files:
+            flash('Please select a file to upload', 'warning')
+            return redirect(url_for('account_settings'))
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            flash('No file selected', 'warning')
+            return redirect(url_for('account_settings'))
+        
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            flash('Invalid file format. Please upload an Excel file (.xlsx or .xls)', 'danger')
+            return redirect(url_for('account_settings'))
+        
+        # Convert the Revolut statement
+        transactions = convert_revolut_statement(file)
+        
+        success_count = 0
+        error_count = 0
+        
+        # Get or create a default category for imported transactions
+        default_category = Category.query.filter_by(
+            name='Imported Transactions',
+            user_id=current_user.id
+        ).first()
+        
+        if not default_category:
+            default_category = Category(
+                name='Imported Transactions',
+                type='Expense',  # Default type
+                description='Auto-created for imported transactions',
+                budget_limit=0.0,
+                user_id=current_user.id
+            )
+            db.session.add(default_category)
+            db.session.flush()
+        
+        # Process each converted transaction
+        for trans in transactions:
+            try:
+                # Create transaction
+                new_transaction = Transaction(
+                    date=datetime.strptime(trans['date'], '%Y-%m-%d'),
+                    amount=trans['amount'],
+                    description=trans['description'],
+                    type=trans['type'],
+                    category_id=default_category.id,
+                    user_id=current_user.id
+                )
+                
+                db.session.add(new_transaction)
+                success_count += 1
+                
+            except Exception as e:
+                error_count += 1
+                current_app.logger.error(f"Error processing transaction: {str(e)}")
+                continue
+        
+        db.session.commit()
+        
+        if success_count > 0:
+            if error_count == 0:
+                flash(f'Successfully imported {success_count} transactions!', 'success')
+            else:
+                flash(f'Imported {success_count} transactions with {error_count} errors. Check the logs for details.', 'warning')
+        else:
+            flash('No transactions were imported. Please check the file format.', 'danger')
+            
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error importing Revolut statement: {str(e)}")
+        flash(f'Error processing Revolut statement: {str(e)}', 'danger')
+    
+    return redirect(url_for('account_settings'))
 
 @app.route('/update_profile', methods=['POST'])
 @login_required

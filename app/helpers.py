@@ -234,6 +234,41 @@ def process_transaction_data(regular_transactions, recurring_transactions, today
         'net_savings': total_income - total_expenses
     }
 
+def convert_revolut_statement(file):
+    try:
+        # Read the Excel file
+        df = pd.read_excel(file)
+        
+        # Initialize list to store converted transactions
+        converted_transactions = []
+        
+        # Remove any rows with NaN values in critical columns
+        df = df.dropna(subset=['Started Date', 'Amount', 'Description'])
+        
+        for _, row in df.iterrows():
+            # Handle amount conversion
+            amount = float(row['Amount'])
+            transaction_type = 'Income' if amount > 0 else 'Expense'
+            
+            # Convert pandas Timestamp to string date format
+            transaction_date = pd.to_datetime(row['Started Date'])
+            
+            # Create transaction dictionary
+            transaction = {
+                'date': transaction_date.strftime('%Y-%m-%d'),
+                'amount': abs(amount),
+                'type': transaction_type,
+                'description': str(row['Description']),
+                'category_id': 1  # Use a default category ID from your database
+            }
+            
+            converted_transactions.append(transaction)
+            
+        return converted_transactions
+    
+    except Exception as e:
+        raise Exception(f"Error converting Revolut statement: {str(e)}")
+
 def process_csv_import(file, user_id):
     
     try:
