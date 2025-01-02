@@ -43,11 +43,6 @@ def home():
         categories = Category.query.filter_by(user_id=current_user.id).all()
 
         data = process_transaction_data(regular_transactions, recurring_transactions)
-
-        # Debug log
-        current_app.logger.debug(f"Found {len(recent_transactions)} recent transactions")
-        current_app.logger.debug(f"Found {len(recurring_transactions)} recurring transactions")
-
     
         return render_template('index.html',
                              recent_transactions=recent_transactions,
@@ -135,24 +130,65 @@ def add_transaction():
 @login_required
 def view_transactions():
     try:
-        regular_transactions = Transaction.query.filter_by(user_id=current_user.id).all()
+        # Get filter parameters from request
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        transaction_type = request.args.get('type')
+        category_id = request.args.get('category')
+
+        # Start with base query - always filter by current user
+        query = Transaction.query.filter_by(user_id=current_user.id)
+
+        # Apply filters only if they have values
+        if start_date and start_date.strip():
+            query = query.filter(Transaction.date >= datetime.strptime(start_date, '%Y-%m-%d'))
+        
+        if end_date and end_date.strip():
+            query = query.filter(Transaction.date <= datetime.strptime(end_date, '%Y-%m-%d'))
+        
+        if transaction_type and transaction_type.strip():
+            query = query.filter(Transaction.type.ilike(f"%{transaction_type}%"))
+        
+        if category_id and category_id.strip() and category_id != 'all':
+            query = query.filter(Transaction.category_id == int(category_id))
+
+        # Execute query
+        filtered_transactions = query.order_by(Transaction.date.desc()).all()
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # For AJAX requests, return JSON
+            return jsonify({
+                'transactions': [{
+                    'id': t.id,
+                    'date': t.date.strftime('%Y-%m-%d'),
+                    'category_name': t.category.name,
+                    'description': t.description or '',
+                    'amount': float(t.amount),
+                    'formatted_amount': format_currency(t.amount),
+                    'type': t.type
+                } for t in filtered_transactions],
+                'total_income': sum(t.amount for t in filtered_transactions if t.type.lower() == 'income'),
+                'total_expenses': sum(t.amount for t in filtered_transactions if t.type.lower() == 'expense'),
+            })
+
+        # For regular page load
         recurring_transactions = RecurringTransaction.query.filter_by(user_id=current_user.id).all()
         categories = Category.query.filter_by(user_id=current_user.id).all()
-        
-        data = process_transaction_data(regular_transactions, recurring_transactions)
-        
+        data = process_transaction_data(filtered_transactions, recurring_transactions)
+
         return render_template('view_transactions.html',
-                             transactions=regular_transactions,
+                             transactions=filtered_transactions,
                              recurring_transactions=recurring_transactions,
                              categories=categories,
                              total_income=data['total_income'],
                              total_expenses=data['total_expenses'],
                              net_balance=data['net_savings'])
+
     except Exception as e:
         current_app.logger.error(f"Error in view_transactions: {str(e)}")
         flash('An error occurred while loading transactions.', 'error')
         return redirect(url_for('home'))
-    
+
 @app.route('/delete_transaction/<int:transaction_id>', methods=['POST'])
 @login_required
 def delete_transaction(transaction_id):

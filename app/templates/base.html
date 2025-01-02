@@ -239,6 +239,39 @@
 .navbar-nav {
     gap: 0.2rem;
 }
+.flash-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            animation: fadeInOut 5s ease-in-out;
+            border-radius: 5px;
+            padding: 15px 25px;
+            margin-bottom: 10px;
+            opacity: 0;
+        }
+
+        .flash-success {
+            background-color: #1cc88a;
+            color: white;
+        }
+
+        .flash-error {
+            background-color: #e74a3b;
+            color: white;
+        }
+
+        .flash-info {
+            background-color: #36b9cc;
+            color: white;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { opacity: 0; }
+        }
 
 /* Responsive adjustments */
 @media (max-width: 992px) {

@@ -4,21 +4,109 @@
 
 {% block content %}
 <div class="container-fluid px-4 py-3">
-    <!-- Page Header with Stats Cards -->
+    <!-- Page Header -->
     <div class="row g-3 mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center bg-light rounded-3 p-3 shadow-sm">
-                <h2 class="mb-0">
-                    <i class="fas fa-receipt me-2"></i>Transactions
-                    <small class="text-muted fs-6" id="transaction-count">({{ transactions|length }} total)</small>
-                </h2>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
-                        <i class="fas fa-filter me-2"></i>Filter
+            <div class="bg-light rounded-3 p-3 shadow-sm">
+                <!-- Header Section -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">
+                        <i class="fas fa-receipt me-2"></i>Transactions
+                        <small class="text-muted fs-6" id="transaction-count">({{ transactions|length }} total)</small>
+                    </h2>
+                </div>
+                <!-- Active Filters Display -->
+                <div id="activeFilters" class="mb-3" style="display: none;">
+                    <div class="d-flex align-items-center flex-wrap gap-2 p-3 bg-white rounded border">
+                        <span class="text-muted">
+                            <i class="fas fa-filter me-2"></i>Active Filters:
+                        </span>
+                        <div id="activeFilterTags" class="d-flex flex-wrap gap-2">
+                            <!-- Filter tags will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+                <!-- Filter Button -->
+                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    <i class="fas fa-filter me-2"></i>Filters
+                </button>
+                <!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-filter me-2"></i>Filter Transactions
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <form method="GET">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <!-- Date Filters -->
+                        <div class="col-md-6">
+                            <label class="form-label">Start Date</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                <input type="date" class="form-control" name="start_date" 
+                                       value="{{ request.args.get('start_date', '') }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">End Date</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                <input type="date" class="form-control" name="end_date" 
+                                       value="{{ request.args.get('end_date', '') }}">
+                            </div>
+                        </div>
+
+                        <!-- Type Filter -->
+                        <div class="col-12">
+                            <label class="form-label">Type</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="type" id="all" value="" 
+                                       {{ 'checked' if not request.args.get('type') }} autocomplete="off">
+                                <label class="btn btn-outline-secondary" for="all">All</label>
+
+                                <input type="radio" class="btn-check" name="type" id="income" value="income"
+                                       {{ 'checked' if request.args.get('type') == 'income' }} autocomplete="off">
+                                <label class="btn btn-outline-success" for="income">Income</label>
+
+                                <input type="radio" class="btn-check" name="type" id="expense" value="expense"
+                                       {{ 'checked' if request.args.get('type') == 'expense' }} autocomplete="off">
+                                <label class="btn btn-outline-danger" for="expense">Expense</label>
+                            </div>
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="col-12">
+                            <label class="form-label">Category</label>
+                            <select class="form-select" name="category">
+                                <option value="">All Categories</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}" 
+                                        {{ 'selected' if request.args.get('category')|int == category.id }}>
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>Apply Filters
                     </button>
                 </div>
-            </div>
+            </form>
         </div>
+    </div>
+</div>
+
 <!-- Edit Transaction Modal -->
 <div class="modal fade" id="editTransactionModal" tabindex="-1">
     <div class="modal-dialog">
@@ -104,57 +192,66 @@
         </div>
     </div>
 </div>
- 
-        <!-- Summary Cards -->
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm transition-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Income</h6>
-                            <h4 class="mb-0 text-success counter" id="income-total">{{ format_currency(total_income) }}</h4>
-                        </div>
-                        <div class="rounded-circle bg-success bg-opacity-10 p-3">
-                            <i class="fas fa-coins text-success fa-lg"></i>
-                        </div>
+    <!-- Summary Cards -->
+<div class="row g-4 mb-4">
+    <!-- Income Card -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm stat-card h-100">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="stat-icon bg-success-subtle p-3 rounded-circle me-3">
+                        <i class="fas fa-coins fa-2x text-success"></i>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm transition-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Total Expenses</h6>
-                            <h4 class="mb-0 text-danger counter" id="expense-total">Ft {{ "{:,.0f}".format(total_expenses) }}</h4>
-                        </div>
-                        <div class="rounded-circle bg-danger bg-opacity-10 p-3">
-                            <i class="fas fa-credit-card text-danger fa-lg"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm transition-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-2">Balance</h6>
-                            <h4 class="mb-0 counter" id="balance-total">{{ format_currency(total_income - total_expenses) }}</h4>
-                        </div>
-                        <div class="rounded-circle bg-primary bg-opacity-10 p-3">
-                            <i class="fas fa-wallet text-primary fa-lg"></i>
-                        </div>
+                    <div>
+                        <h6 class="stat-label text-uppercase fw-semibold text-muted mb-1">Total Income</h6>
+                        <h3 class="stat-value text-success mb-0" id="income-total">
+                            {{ format_currency(total_income) }}
+                        </h3>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Expenses Card -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm stat-card h-100">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="stat-icon bg-danger-subtle p-3 rounded-circle me-3">
+                        <i class="fas fa-credit-card fa-2x text-danger"></i>
+                    </div>
+                    <div>
+                        <h6 class="stat-label text-uppercase fw-semibold text-muted mb-1">Total Expenses</h6>
+                        <h3 class="stat-value text-danger mb-0" id="expense-total">
+                            {{ format_currency(total_expenses) }}
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Balance Card -->
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm stat-card h-100">
+            <div class="card-body p-4">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="stat-icon bg-primary-subtle p-3 rounded-circle me-3">
+                        <i class="fas fa-wallet fa-2x text-primary"></i>
+                    </div>
+                    <div>
+                        <h6 class="stat-label text-uppercase fw-semibold text-muted mb-1">Net Balance</h6>
+                        <h3 class="stat-value text-primary mb-0" id="balance-total">
+                            {{ format_currency(total_income - total_expenses) }}
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+        
     <!-- Transactions Table -->
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
@@ -222,68 +319,6 @@
         </div>
     </div>
 
-    <!-- Filter Modal -->
-    <div class="modal fade" id="filterModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-filter me-2"></i>Filter Transactions</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="GET" class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Start Date</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-calendar"></i></span>
-                                <input type="date" class="form-control" name="start_date" value="{{ request.args.get('start_date', '') }}">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">End Date</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-calendar"></i></span>
-                                <input type="date" class="form-control" name="end_date" value="{{ request.args.get('end_date', '') }}">
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Type</label>
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="type" id="all" value="" 
-                                       {{ 'checked' if not request.args.get('type') }} autocomplete="off">
-                                <label class="btn btn-outline-secondary" for="all">All</label>
-
-                                <input type="radio" class="btn-check" name="type" id="income" value="income"
-                                       {{ 'checked' if request.args.get('type') == 'income' }} autocomplete="off">
-                                <label class="btn btn-outline-success" for="income">Income</label>
-
-                                <input type="radio" class="btn-check" name="type" id="expense" value="expense"
-                                       {{ 'checked' if request.args.get('type') == 'expense' }} autocomplete="off">
-                                <label class="btn btn-outline-danger" for="expense">Expense</label>
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Category</label>
-                            <select class="form-select" name="category">
-                                <option value="">All Categories</option>
-                                {% for category in categories %}
-                                <option value="{{ category.id }}" {{ 'selected' if request.args.get('category')|int == category.id }}>
-                                    {{ category.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-search me-2"></i>Apply Filters
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <!-- Toast Container -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 </div>
@@ -291,6 +326,129 @@
 <!-- CSS Styles -->
 <style>
 /* Card Styles */
+.stat-card {
+    border-radius: 1rem;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+}
+
+.stat-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* Animation for numbers */
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stat-value {
+    animation: countUp 0.5s ease-out forwards;
+}
+
+.filter-tag {
+        display: inline-flex;
+        align-items: center;
+        background-color: #e9ecef;
+        padding: 0.35rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.875rem;
+        color: #495057;
+    }
+
+    .filter-tag .close {
+        margin-left: 0.5rem;
+        cursor: pointer;
+        opacity: 0.5;
+        transition: opacity 0.2s;
+    }
+    .filter-tag {
+        display: inline-flex;
+        align-items: center;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 0.35rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.875rem;
+        color: #495057;
+    }
+
+    .filter-tag .close {
+        margin-left: 0.5rem;
+        cursor: pointer;
+        opacity: 0.5;
+        transition: opacity 0.2s;
+        font-size: 1.1rem;
+    }
+
+    .filter-tag .close:hover {
+        opacity: 1;
+    }
+
+    #activeFilters {
+        transition: all 0.3s ease;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+    }
+
+    .input-group-text {
+        background-color: #f8f9fa;
+    }
+
+    .btn-group {
+        border-radius: 0.375rem;
+    }
+
+    .btn-check + .btn {
+        padding: 0.5rem 1rem;
+    }
+    .filter-tag .close:hover {
+        opacity: 1;
+    }
+
+    #activeFilters {
+        transition: all 0.3s ease;
+    }
+
 .transition-card {
     transition: all 0.3s ease;
     border: none;
@@ -710,7 +868,98 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+function showFlash(message, type = 'success') {
+    const flashDiv = document.createElement('div');
+    flashDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    flashDiv.style.zIndex = '1050';
+    flashDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    document.body.appendChild(flashDiv);
 
+    setTimeout(() => {
+        flashDiv.remove();
+    }, 5000);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const activeFilters = document.getElementById('activeFilters');
+    const activeFilterTags = document.getElementById('activeFilterTags');
+    const clearFiltersBtn = document.getElementById('clearFilters');
+
+    function updateActiveFilters() {
+        const formData = new FormData(form);
+        let hasActiveFilters = false;
+        activeFilterTags.innerHTML = '';
+
+        formData.forEach((value, key) => {
+            if (value) {
+                hasActiveFilters = true;
+                let filterText = '';
+                
+                switch (key) {
+                    case 'start_date':
+                        filterText = `From: ${new Date(value).toLocaleDateString()}`;
+                        break;
+                    case 'end_date':
+                        filterText = `To: ${new Date(value).toLocaleDateString()}`;
+                        break;
+                    case 'type':
+                        filterText = `Type: ${value.charAt(0).toUpperCase() + value.slice(1)}`;
+                        break;
+                    case 'category':
+                        const categoryOption = form.querySelector(`select[name="category"] option[value="${value}"]`);
+                        filterText = `Category: ${categoryOption ? categoryOption.textContent : value}`;
+                        break;
+                }
+
+                if (filterText) {
+                    const tag = document.createElement('div');
+                    tag.className = 'filter-tag';
+                    tag.innerHTML = `
+                        ${filterText}
+                        <span class="close" onclick="clearFilter('${key}')">&times;</span>
+                    `;
+                    activeFilterTags.appendChild(tag);
+                }
+            }
+        });
+
+        activeFilters.style.display = hasActiveFilters ? 'block' : 'none';
+    }
+
+    // Clear individual filter
+    window.clearFilter = function(filterKey) {
+        const input = form.querySelector(`[name="${filterKey}"]`);
+        if (input) {
+            if (input.type === 'radio') {
+                form.querySelector('#all').checked = true;
+            } else {
+                input.value = '';
+            }
+            form.submit();
+        }
+    };
+
+    // Clear all filters
+    clearFiltersBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        form.reset();
+        form.submit();
+    });
+
+    // Initialize active filters
+    updateActiveFilters();
+
+    // Update active filters when form changes
+    form.querySelectorAll('input, select').forEach(input => {
+        input.addEventListener('change', () => {
+            updateActiveFilters();
+        });
+    });
+});
 
 </script>
 {% endblock %}

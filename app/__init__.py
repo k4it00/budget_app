@@ -34,8 +34,6 @@ app.secret_key = secret_key
 app.config.from_object(Config)
 database_url = os.getenv('DATABASE_URI')
 
-if not database_url:
-    raise ValueError("No DATABASE_URI set in environment variables")
 
 # Configure SQLAlchemy - MOVED BEFORE db.init_app(app)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
