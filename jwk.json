@@ -1,0 +1,15 @@
+{
+    "keys": [
+      {
+        "e": "AQAB",
+        "n": "<your n claim value>",
+        "kid": "<your KID value>",
+        "kty": "RSA",
+        "use": "sig",
+        "x5c": [
+          "<your base64-encoded signing certificate>"
+        ]
+      }
+    ]
+  }
+  
