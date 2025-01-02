@@ -18,4 +18,4 @@ document.addEventListener('DOMContentLoaded', function() {
             alert.style.display = 'none';
         });
     }, 3000);
-});
+}); 

@@ -2,7 +2,7 @@ const CACHE_NAME = 'budget-app-v1';
 const urlsToCache = [
   '/',
   '/static/css/styles.css',
-  '/static/js/main.js',
+  '/static/js/scripts.js',
   // Add other static assets you want to cache
 ];
 
@@ -25,9 +25,9 @@ self.addEventListener('install', function(event) {
         caches.open('budget-app-v1').then(function(cache) {
             return cache.addAll([
                 '/',
-                '/static/css/style.css',
-                '/static/js/main.js',
-                '/static/img/icon.png'
+                '/static/css/styles.css',
+                '/static/js/scripts.js',
+                '/static/img/favicon.ico',
             ]);
         })
     );
